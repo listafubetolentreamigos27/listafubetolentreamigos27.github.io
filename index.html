@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lista de Futebol - Entre Amigos</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <div class="game-info-header">
+            <h1>Lista de Presença</h1>
+            <h1>FUTEBOL ENTRE AMIGOS ⚽</h1>
+
+            <div class="game-details-grid">
+                <div class="info-section time-info">
+                    <h3>Horários e Tolerância:</h3>
+                    <p><span class="label">Todo Sábado:</span> 16:00 às 18:00</p>
+                    <p><span class="label">Início:</span> 15:50</p>
+                    <p><span class="label">Tolerância:</span> 10 minutos</p>
+                    <p class="warning-text"><span class="label">Atenção:</span> 16:01 perde a vaga!</p>
+                </div>
+                <div class="info-section payment-info">
+                    <h3>Pagamento:</h3>
+                    <p><span class="label">Valor:</span> R$ 3,00 💵</p>
+                    <p><span class="label">PicPay:</span> <a href="https://picpay.me/futebolentreamigos27" target="_blank" rel="noopener noreferrer">futebolentreamigos27</a></p>
+                    <p><span class="label">Pix (Celular):</span> 27999296977</p>
+                </div>
+            </div>
+            <div class="external-links">
+                <h3>Links Úteis:</h3>
+                <p><a href="https://docs.google.com/document/d/1NYg9u0BggBE2kcdWnsLoMyg5xm2CR34vqTP17OgFOgs/edit?usp=sharing" target="_blank" rel="noopener noreferrer">Acesse as regras da pelada</a></p>
+                <p><a href="https://docs.google.com/spreadsheets/d/1Zk7kyL-C-s0rBq9JB9J1eNqOfTrnJcZkokIS_y_uyN8/edit?usp=sharing" target="_blank" rel="noopener noreferrer">Controle Financeiro</a></p>
+            </div>
+        </div>
+
+        <div id="auth-container">
+            <p id="user-info">Por favor, faça login para participar.</p>
+            <button id="login-button">Login com Google</button>
+            <button id="logout-button" style="display:none;">Logout</button>
+        </div>
+
+        <div class="tabs-container" style="display:none;"> <div class="tab-buttons">
+                <button class="tab-button active" data-tab="tab-game-lists">Listas do Jogo</button>
+                <button class="tab-button" data-tab="tab-admin-panel" id="admin-tab-button" style="display:none;">Painel do Admin</button>
+            </div>
+
+            <div class="tab-content active" id="tab-game-lists">
+                <div class="controls">
+                    <label for="is-goalkeeper">Sou goleiro?</label>
+                    <input type="checkbox" id="is-goalkeeper">
+                    <button id="confirm-presence-button">Confirmar Presença</button>
+                </div>
+                <p id="error-message" class="error-message"></p>
+                <div class="list-section">
+                    <h2>Goleiros Confirmados (<span id="confirmed-gk-count">0</span>/<span id="max-goalkeepers-display">4</span>)</h2>
+                    <ul id="confirmed-goalkeepers-list"></ul>
+                </div>
+                <div class="list-section">
+                    <h2>Jogadores de Linha Confirmados (<span id="confirmed-fp-count">0</span>/<span id="max-fieldplayers-display">20</span>)</h2>
+                    <ul id="confirmed-fieldplayers-list"></ul>
+                </div>
+                <div class="list-section">
+                    <h2>Lista de Espera (<span id="waiting-count">0</span>)</h2>
+                    <ul id="waiting-list"></ul>
+                </div>
+            </div>
+
+            <div class="tab-content" id="tab-admin-panel">
+                <div class="admin-panel-content"> <h3>Usuários Registrados</h3>
+                    <p><small>Lista de usuários que já fizeram login. Use para adicionar jogadores às listas de futebol.</small></p>
+                    <div class="admin-user-actions">
+                        <input type="text" id="admin-search-user" placeholder="Buscar usuário por nome ou UID...">
+                    </div>
+                    <ul id="admin-all-users-list">
+                        </ul>
+                </div>
+            </div>
+        </div>
+        <p id="error-message" class="error-message"></p>
+    </div><script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-database-compat.js"></script>
+
+    <script src="script.js"></script>
+</body>
+</html>
