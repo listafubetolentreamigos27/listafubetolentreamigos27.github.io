@@ -508,8 +508,15 @@ button:hover {
         width: 100%; /* Para que a quebra de palavra funcione bem */
     }
 
-     .list-section ul li, .admin-user-item {
+     .list-section ul li {
         padding: 8px 10px;
+        align-items: flex-start; /* Alinha tudo à esquerda */
+        gap: 8px; /* Espaço entre info e botão quando empilhado */
+    }
+
+     .admin-user-item {
+        padding: 8px 10px;
+         flex-direction: column;
         align-items: flex-start; /* Alinha tudo à esquerda */
         gap: 8px; /* Espaço entre info e botão quando empilhado */
     }
@@ -522,9 +529,7 @@ button:hover {
         padding: 9px;
         font-size: 0.9em;
     }
-    .admin-user-item {
-        /* flex-direction e align-items já definidos acima para empilhar */
-    }
+    
     .admin-user-info {
         margin-right: 0; /* Remove margem */
         margin-bottom: 8px; /* Espaço abaixo da info do usuário */
