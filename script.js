@@ -19,10 +19,20 @@ const database = firebase.database();
 const MAX_FIELD_PLAYERS = 20;
 const MAX_GOALKEEPERS = 4;
 
+// --- Constantes do Horário da Lista (Fuso de Brasília) ---
+const LIST_OPEN_DAY = 3; // Quarta-feira (Domingo=0, Segunda=1, ..., Sábado=6)
+const LIST_OPEN_HOUR = 19; // 19:00
+const LIST_OPEN_MINUTE = 0;
+
+const LIST_CLOSE_DAY = 6; // Sábado
+const LIST_CLOSE_HOUR = 16; // 16:00
+const LIST_CLOSE_MINUTE = 10; // Fecha às 16:11, então aberto até 16:10:59 (minuto < 1)
+
 // --- Referências do DOM ---
 const loginButton = document.getElementById('login-button');
 const logoutButton = document.getElementById('logout-button');
 const userInfo = document.getElementById('user-info');
+const listStatusMessageElement = document.getElementById('list-status-message');
 
 const confirmPresenceButton = document.getElementById('confirm-presence-button');
 const isGoalkeeperCheckbox = document.getElementById('is-goalkeeper');
@@ -44,14 +54,80 @@ const tabButtons = document.querySelectorAll('.tab-button');
 const tabContents = document.querySelectorAll('.tab-content');
 const adminTabButton = document.getElementById('admin-tab-button');
 
-// Referências do Painel Admin (dentro da aba)
+// Referências do Painel Admin
 const adminAllUsersListElement = document.getElementById('admin-all-users-list');
 const adminSearchUserInput = document.getElementById('admin-search-user');
 
 // --- Estado do Usuário e Admin ---
 let currentUser = null;
 let isCurrentUserAdmin = false;
-let allUsersDataForAdminCache = []; // Cache para busca/filtragem no cliente
+let allUsersDataForAdminCache = [];
+
+// --- Lógica de Horário e Fuso Horário de Brasília ---
+function getCurrentBrasiliaDateTimeParts() {
+    const nowUtc = new Date();
+    const brasiliaDateString = nowUtc.toLocaleString('en-US', { timeZone: 'America/Sao_Paulo' });
+    const brasiliaEquivalentDate = new Date(brasiliaDateString);
+
+    return {
+        dayOfWeek: brasiliaEquivalentDate.getDay(),
+        hour: brasiliaEquivalentDate.getHours(),
+        minute: brasiliaEquivalentDate.getMinutes(),
+        dateObject: brasiliaEquivalentDate
+    };
+}
+
+function isListCurrentlyOpen() {
+    const brasiliaTime = getCurrentBrasiliaDateTimeParts();
+    const currentDay = brasiliaTime.dayOfWeek;
+    const currentHour = brasiliaTime.hour;
+    const currentMinute = brasiliaTime.minute;
+
+    if (currentDay === LIST_OPEN_DAY) {
+        return currentHour > LIST_OPEN_HOUR || (currentHour === LIST_OPEN_HOUR && currentMinute >= LIST_OPEN_MINUTE);
+    }
+    if (currentDay > LIST_OPEN_DAY && currentDay < LIST_CLOSE_DAY) {
+        return true;
+    }
+    if (currentDay === LIST_CLOSE_DAY) {
+        return currentHour < LIST_CLOSE_HOUR || (currentHour === LIST_CLOSE_HOUR && currentMinute < LIST_CLOSE_MINUTE);
+    }
+    return false;
+}
+
+function getMostRecentListOpenTimestamp() {
+    const nowInBrasiliaView = getCurrentBrasiliaDateTimeParts().dateObject;
+    let listOpenDateTimeInBrasiliaView = new Date(nowInBrasiliaView.getTime());
+    const dayDifference = (nowInBrasiliaView.getDay() - LIST_OPEN_DAY + 7) % 7;
+    listOpenDateTimeInBrasiliaView.setDate(nowInBrasiliaView.getDate() - dayDifference);
+    listOpenDateTimeInBrasiliaView.setHours(LIST_OPEN_HOUR, LIST_OPEN_MINUTE, 0, 0);
+    
+    if (listOpenDateTimeInBrasiliaView.getTime() > nowInBrasiliaView.getTime()) {
+        listOpenDateTimeInBrasiliaView.setDate(listOpenDateTimeInBrasiliaView.getDate() - 7);
+    }
+    return listOpenDateTimeInBrasiliaView.getTime();
+}
+
+function updateListAvailabilityUI() {
+    const isOpen = isListCurrentlyOpen();
+    if (listStatusMessageElement) {
+        if (isOpen) {
+            listStatusMessageElement.textContent = "Lista de presença ABERTA!";
+            listStatusMessageElement.className = 'list-status open';
+        } else {
+            listStatusMessageElement.textContent = "Lista FECHADA. Abre Quarta 19h, fecha Sábado 16:01.";
+            listStatusMessageElement.className = 'list-status closed';
+        }
+    }
+
+    if (confirmPresenceButton) {
+        if (isCurrentUserAdmin) {
+            confirmPresenceButton.disabled = false;
+        } else {
+            confirmPresenceButton.disabled = !isOpen;
+        }
+    }
+}
 
 // --- Lógica de Autenticação ---
 auth.onAuthStateChanged(user => {
@@ -60,18 +136,14 @@ auth.onAuthStateChanged(user => {
         userInfo.textContent = `Logado como: ${user.displayName || user.email}`;
         loginButton.style.display = 'none';
         logoutButton.style.display = 'inline-block';
-        if (tabsContainer) tabsContainer.style.display = 'block'; // Mostra container de abas
+        if (tabsContainer) tabsContainer.style.display = 'block';
 
-        // Salvar/Atualizar informações de login do usuário
         const userLoginRef = database.ref(`allUsersLogins/${user.uid}`);
         userLoginRef.set({
             name: user.displayName || "Usuário Anônimo",
             lastLogin: firebase.database.ServerValue.TIMESTAMP
-        }).catch(error => {
-            console.error("Erro ao salvar informações de login do usuário:", error);
-        });
+        }).catch(error => console.error("Erro ao salvar login:", error));
 
-        // Verificar status de admin
         const adminStatusRef = database.ref(`admins/${user.uid}`);
         adminStatusRef.once('value').then(snapshot => {
             isCurrentUserAdmin = snapshot.exists() && snapshot.val() === true;
@@ -82,35 +154,37 @@ auth.onAuthStateChanged(user => {
             }
 
             if (isCurrentUserAdmin) {
-                // Se for admin, pode carregar a lista de usuários para o painel
                 loadAndRenderAllUsersListForAdmin();
+                checkAndPerformAdminAutoAdd();
             } else {
-                // Se não for admin e a aba admin estiver ativa (ex: por URL ou estado anterior),
-                // volta para a primeira aba e limpa dados do painel admin.
-                const adminPanelTabElement = document.getElementById('tab-admin-panel');
-                if (adminPanelTabElement && adminPanelTabElement.classList.contains('active')) {
+                const adminPanelTab = document.getElementById('tab-admin-panel');
+                if (adminPanelTab && adminPanelTab.classList.contains('active')) {
                     const gameListsTabButton = document.querySelector('.tab-button[data-tab="tab-game-lists"]');
                     if (gameListsTabButton) gameListsTabButton.click();
                 }
                 if (adminAllUsersListElement) adminAllUsersListElement.innerHTML = '';
                 allUsersDataForAdminCache = [];
             }
-            loadLists(); // Carrega listas principais (Confirmados, Espera)
+            loadLists();
+            updateListAvailabilityUI();
         }).catch(error => {
-            console.error("Erro ao verificar status de admin:", error);
+            console.error("Erro ao verificar admin:", error);
             isCurrentUserAdmin = false;
             if (adminTabButton) adminTabButton.style.display = 'none';
             loadLists();
+            updateListAvailabilityUI();
         });
-
-    } else { // Usuário deslogado
+    } else {
         isCurrentUserAdmin = false;
         currentUser = null;
         userInfo.textContent = 'Por favor, faça login para participar.';
         loginButton.style.display = 'inline-block';
         logoutButton.style.display = 'none';
         if (tabsContainer) tabsContainer.style.display = 'none';
-        if (adminTabButton) adminTabButton.style.display = 'none'; // Esconde botão da aba admin
+        if (adminTabButton) adminTabButton.style.display = 'none';
+        if (listStatusMessageElement) listStatusMessageElement.textContent = '';
+        if (confirmPresenceButton) confirmPresenceButton.disabled = true;
+
         clearListsUI();
         if (adminAllUsersListElement) adminAllUsersListElement.innerHTML = '';
         allUsersDataForAdminCache = [];
@@ -132,57 +206,123 @@ logoutButton.addEventListener('click', () => {
     });
 });
 
-
 // --- Lógica das Abas ---
 if (tabButtons && tabContents) {
     tabButtons.forEach(button => {
         button.addEventListener('click', () => {
-            // Desativa todos os botões e conteúdos
             tabButtons.forEach(btn => btn.classList.remove('active'));
             tabContents.forEach(content => content.classList.remove('active'));
-
-            // Ativa o botão clicado e o conteúdo correspondente
             button.classList.add('active');
             const targetTabId = button.getAttribute('data-tab');
             const targetContent = document.getElementById(targetTabId);
             if (targetContent) {
                 targetContent.classList.add('active');
             }
-            // Se a aba admin for ativada, e o usuário for admin, recarrega/renderiza sua lista
-            if (targetTabId === 'tab-admin-panel' && isCurrentUserAdmin) {
-                filterAndRenderAdminUserList(adminSearchUserInput ? adminSearchUserInput.value : "");
+            if (targetTabId === 'tab-admin-panel' && isCurrentUserAdmin && adminSearchUserInput) {
+                filterAndRenderAdminUserList(adminSearchUserInput.value);
             }
         });
     });
 }
 
+// --- Adição Automática de Admins ---
+async function checkAndPerformAdminAutoAdd() {
+    if (!isCurrentUserAdmin || !isListCurrentlyOpen()) {
+        return;
+    }
+    const currentCycleTimestamp = getMostRecentListOpenTimestamp();
+    const scheduleStateRef = database.ref('scheduleState/lastAdminAutoAddCycleTimestamp');
 
-// --- Lógica da Lista de Presença (Firebase Refs) ---
+    try {
+        const snapshot = await scheduleStateRef.once('value');
+        const lastCycleTimestamp = snapshot.val() || 0;
+
+        if (currentCycleTimestamp > lastCycleTimestamp) {
+            console.log("Novo ciclo, adicionando admins...");
+            displayErrorMessage("Adicionando administradores à lista...");
+
+            const adminsSnapshot = await database.ref('admins').once('value');
+            const adminUidsMap = adminsSnapshot.val();
+            if (!adminUidsMap) {
+                console.log("Nenhum admin configurado.");
+                await scheduleStateRef.set(currentCycleTimestamp);
+                return;
+            }
+            const adminUids = Object.keys(adminUidsMap);
+            
+            const [confirmedSnapshot, allLoginsSnapshot] = await Promise.all([
+                confirmedPlayersRef.once('value'),
+                database.ref('allUsersLogins').once('value')
+            ]);
+            
+            let confirmedPlayers = confirmedSnapshot.val() || {}; // Usar let para poder reatribuir localmente
+            const allLogins = allLoginsSnapshot.val() || {};
+
+            let localConfirmedPlayersArray = Object.values(confirmedPlayers);
+            let numConfirmedFieldPlayers = localConfirmedPlayersArray.filter(p => !p.isGoalkeeper).length;
+
+            let adminsAddedCount = 0;
+            for (const adminUid of adminUids) {
+                if (!confirmedPlayers[adminUid]) {
+                    const adminName = allLogins[adminUid]?.name || `Admin ${adminUid.substring(0, 6)}`;
+                    const adminData = {
+                        name: adminName,
+                        isGoalkeeper: false,
+                        timestamp: firebase.database.ServerValue.TIMESTAMP
+                    };
+
+                    if (numConfirmedFieldPlayers < MAX_FIELD_PLAYERS) {
+                        await confirmedPlayersRef.child(adminUid).set(adminData);
+                        console.log(`Admin ${adminName} adicionado automaticamente.`);
+                        adminsAddedCount++;
+                        // Atualiza o objeto local para a próxima iteração e contagem
+                        confirmedPlayers[adminUid] = adminData; 
+                        numConfirmedFieldPlayers++;
+                    } else {
+                        console.log(`Admin ${adminName} não pôde ser adicionado (limite de linha).`);
+                    }
+                } else {
+                    console.log(`Admin ${allLogins[adminUid]?.name || adminUid.substring(0,6)} já está na lista.`);
+                }
+            }
+            if (adminsAddedCount > 0) displayErrorMessage(`${adminsAddedCount} administrador(es) adicionado(s).`);
+            await scheduleStateRef.set(currentCycleTimestamp);
+        } else {
+            console.log("Adição de admins para este ciclo já feita ou não é o momento.");
+        }
+    } catch (error) {
+        console.error("Erro na adição automática de admins:", error);
+        displayErrorMessage("Erro ao adicionar admins automaticamente.");
+    }
+}
+
+// --- Lógica da Lista de Presença (Firebase Refs e Funções) ---
 const confirmedPlayersRef = database.ref('listaFutebol/jogadoresConfirmados');
 const waitingListRef = database.ref('listaFutebol/listaEspera');
 
-// Atualiza os spans de máximo na UI
 if (maxGoalkeepersDisplaySpan) maxGoalkeepersDisplaySpan.textContent = MAX_GOALKEEPERS;
 if (maxFieldplayersDisplaySpan) maxFieldplayersDisplaySpan.textContent = MAX_FIELD_PLAYERS;
 
 function displayErrorMessage(message) {
     if (errorMessageElement) {
         errorMessageElement.textContent = message;
-        errorMessageElement.style.display = 'block'; // MOSTRA o elemento
-
-        // Limpa a mensagem e esconde o elemento após 5 segundos
+        errorMessageElement.style.display = 'block';
         setTimeout(() => {
             if (errorMessageElement) {
                 errorMessageElement.textContent = '';
-                errorMessageElement.style.display = 'none'; // ESCONDE o elemento novamente
+                errorMessageElement.style.display = 'none';
             }
-        }, 5000); // Tempo em milissegundos (5 segundos)
+        }, 5000);
     }
 }
 
 confirmPresenceButton.addEventListener('click', async () => {
     if (!currentUser) {
         displayErrorMessage("Você precisa estar logado para confirmar presença.");
+        return;
+    }
+     if (!isCurrentUserAdmin && !isListCurrentlyOpen()) {
+        displayErrorMessage("A lista de presença não está aberta no momento.");
         return;
     }
 
@@ -205,7 +345,7 @@ confirmPresenceButton.addEventListener('click', async () => {
         const numConfirmedGoalkeepers = confirmedPlayersArray.filter(p => p.isGoalkeeper).length;
         const numConfirmedFieldPlayers = confirmedPlayersArray.filter(p => !p.isGoalkeeper).length;
 
-        const playerData = { // Definir playerData aqui para reutilização
+        const playerData = {
             name: playerName,
             isGoalkeeper: isGoalkeeper,
             timestamp: firebase.database.ServerValue.TIMESTAMP
@@ -216,15 +356,15 @@ confirmPresenceButton.addEventListener('click', async () => {
                 await confirmedPlayersRef.child(playerId).set(playerData);
                 displayErrorMessage("Presença como goleiro confirmada!");
             } else {
-                await addToWaitingList(playerId, playerName, true, playerData); // Passa playerData
+                await addToWaitingList(playerId, playerName, true, playerData);
                 displayErrorMessage("Limite de goleiros atingido. Adicionado à lista de espera.");
             }
-        } else { // Jogador de linha
+        } else {
             if (numConfirmedFieldPlayers < MAX_FIELD_PLAYERS) {
                 await confirmedPlayersRef.child(playerId).set(playerData);
                 displayErrorMessage("Presença como jogador de linha confirmada!");
             } else {
-                await addToWaitingList(playerId, playerName, false, playerData); // Passa playerData
+                await addToWaitingList(playerId, playerName, false, playerData);
                 displayErrorMessage("Limite de jogadores de linha atingido. Adicionado à lista de espera.");
             }
         }
@@ -253,8 +393,6 @@ async function removePlayer(playerId, listType) {
         displayErrorMessage("Você precisa estar logado para esta ação.");
         return;
     }
-    // A lógica de quem pode remover (próprio jogador ou admin) é reforçada pelas regras do Firebase
-    // e pela UI que mostra o botão condicionalmente.
     try {
         if (listType === 'confirmed') {
             await confirmedPlayersRef.child(playerId).remove();
@@ -349,8 +487,7 @@ function renderPlayerListItem(player, index, listTypeIdentifier) {
         if (isCurrentUserAdmin && currentUser.uid !== player.id) {
             removeBtn.style.backgroundColor = '#f39c12';
         } else if (isCurrentUserAdmin && currentUser.uid === player.id){
-            // Para admin se removendo, pode manter o texto "Sair" ou customizar
-            // removeBtn.textContent = 'Sair (Admin)';
+             // removeBtn.textContent = 'Sair (Admin)'; // Opcional
         }
         const listTypeForRemove = listTypeIdentifier.startsWith('confirmed') ? 'confirmed' : 'waiting';
         removeBtn.onclick = () => removePlayer(player.id, listTypeForRemove);
@@ -419,6 +556,7 @@ function clearListsUI() {
     if(confirmedGkCountSpan) confirmedGkCountSpan.textContent = '0';
     if(confirmedFpCountSpan) confirmedFpCountSpan.textContent = '0';
     if(waitingCountSpan) waitingCountSpan.textContent = '0';
+    if(listStatusMessageElement) listStatusMessageElement.textContent = ''; // Limpa mensagem de status também
 }
 
 // --- Funções para o Painel do Admin ---
@@ -494,8 +632,8 @@ async function adminAddPlayerToGame(playerId, playerName, isPlayerGoalkeeper) {
 
         if (confirmedData[playerId] || waitingData[playerId]) {
             displayErrorMessage(`${playerName} já está em uma das listas.`);
-            // Mesmo se já estiver, atualiza a lista do admin para refletir o status atual (caso o cache estivesse defasado)
-             if (isCurrentUserAdmin && document.getElementById('tab-admin-panel')?.classList.contains('active')) {
+            // Força atualização da lista de admin para garantir que o badge esteja correto.
+            if (isCurrentUserAdmin && document.getElementById('tab-admin-panel')?.classList.contains('active')) {
                 filterAndRenderAdminUserList(adminSearchUserInput ? adminSearchUserInput.value : "");
             }
             return;
@@ -528,8 +666,9 @@ async function adminAddPlayerToGame(playerId, playerName, isPlayerGoalkeeper) {
                 displayErrorMessage(`Limite de Jogadores de Linha atingido. ${playerName} adicionado à Espera.`);
             }
         }
-        // A atualização da lista de admin agora é tratada pelos listeners de confirmedPlayersRef/waitingListRef em loadLists
-        // que chamam filterAndRenderAdminUserList se a aba admin estiver ativa.
+        // A atualização da lista de admin para refletir o novo status (badge)
+        // agora é primariamente tratada pelos listeners em `loadLists`.
+        // Uma chamada explícita aqui é redundante se os listeners funcionarem bem.
 
     } catch (error) {
         console.error("Erro do Admin ao adicionar jogador:", error);
@@ -584,8 +723,10 @@ function loadAndRenderAllUsersListForAdmin() {
                 .sort((a, b) => b.lastLogin - a.lastLogin);
             
             const adminPanelTab = document.getElementById('tab-admin-panel');
-            if(adminPanelTab && adminPanelTab.classList.contains('active')) { // Só renderiza se a aba admin estiver visível
-                filterAndRenderAdminUserList(adminSearchUserInput ? adminSearchUserInput.value : "");
+            if(adminPanelTab && adminPanelTab.classList.contains('active') && adminSearchUserInput) {
+                filterAndRenderAdminUserList(adminSearchUserInput.value);
+            } else if (adminPanelTab && adminPanelTab.classList.contains('active')) {
+                filterAndRenderAdminUserList(""); // Renderiza sem filtro se o campo de busca não existir
             }
         } else {
             allUsersDataForAdminCache = [];
@@ -600,13 +741,15 @@ function loadAndRenderAllUsersListForAdmin() {
 
 // --- Listeners do Firebase para Atualizações em Tempo Real (Listas de Jogo) ---
 function loadLists() {
+    updateListAvailabilityUI(); // Chamada aqui para garantir que o status seja atualizado ao carregar
+
     if (confirmedPlayersRef) {
         confirmedPlayersRef.on('value', snapshot => {
             const players = snapshot.val();
             renderConfirmedLists(players);
             const adminPanelTab = document.getElementById('tab-admin-panel');
-            if (isCurrentUserAdmin && adminPanelTab && adminPanelTab.classList.contains('active')) {
-                filterAndRenderAdminUserList(adminSearchUserInput ? adminSearchUserInput.value : "");
+            if (isCurrentUserAdmin && adminPanelTab && adminPanelTab.classList.contains('active') && adminSearchUserInput) {
+                filterAndRenderAdminUserList(adminSearchUserInput.value);
             }
         }, error => {
             console.error("Erro ao carregar lista de confirmados:", error);
@@ -620,8 +763,8 @@ function loadLists() {
             renderWaitingList(players);
             checkWaitingListAndPromote();
             const adminPanelTab = document.getElementById('tab-admin-panel');
-            if (isCurrentUserAdmin && adminPanelTab && adminPanelTab.classList.contains('active')) {
-                filterAndRenderAdminUserList(adminSearchUserInput ? adminSearchUserInput.value : "");
+            if (isCurrentUserAdmin && adminPanelTab && adminPanelTab.classList.contains('active') && adminSearchUserInput) {
+                filterAndRenderAdminUserList(adminSearchUserInput.value);
             }
         }, error => {
             console.error("Erro ao carregar lista de espera:", error);
