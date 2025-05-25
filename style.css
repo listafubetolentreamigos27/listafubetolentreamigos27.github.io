@@ -508,6 +508,11 @@ button:hover {
         width: 100%; /* Para que a quebra de palavra funcione bem */
     }
 
+     .list-section ul li, .admin-user-item {
+        padding: 8px 10px;
+        align-items: flex-start; /* Alinha tudo à esquerda */
+        gap: 8px; /* Espaço entre info e botão quando empilhado */
+    }
 
     /* Painel Admin Mobile */
     .admin-panel-content h3 {

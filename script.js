@@ -642,7 +642,7 @@ function renderAdminUserListItemForPanel(user, isConfirmed, isInWaitingList) {
 
     const userInfoDiv = document.createElement('div');
     userInfoDiv.classList.add('admin-user-info');
-    userInfoDiv.innerHTML = `<strong>${user.name}</strong> <small>(UID: ${user.id})</small>`;
+    userInfoDiv.innerHTML = `<strong>${user.name}</strong>`;
 
     if (isConfirmed) {
         const badge = document.createElement('span');
