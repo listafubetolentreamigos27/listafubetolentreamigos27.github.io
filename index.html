@@ -40,14 +40,15 @@
             <button id="logout-button" style="display:none;">Logout</button>
         </div>
 
-        <div class="tabs-container" style="display:none;"> <div class="tab-buttons">
+        <div class="tabs-container" style="display:none;">
+            <div class="tab-buttons">
                 <button class="tab-button active" data-tab="tab-game-lists">Listas do Jogo</button>
                 <button class="tab-button" data-tab="tab-admin-panel" id="admin-tab-button" style="display:none;">Painel do Admin</button>
             </div>
 
-            <div class="tab-content active" id="tab-game-lists">              
+            <div class="tab-content active" id="tab-game-lists">
                 <div class="controls">
-                    <label for="is-goalkeeper">Sou goleiro?  <input type="checkbox" id="is-goalkeeper"></label>                    
+                    <label for="is-goalkeeper">Sou goleiro?  <input type="checkbox" id="is-goalkeeper"></label>
                     <button id="confirm-presence-button">Confirmar Presença</button>
                 </div>
                 <p id="error-message" class="error-message"></p>
@@ -66,18 +67,20 @@
             </div>
 
             <div class="tab-content" id="tab-admin-panel">
-                <div class="admin-panel-content"> <h3>Usuários Registrados</h3>
+                <div class="admin-panel-content">
+                    <h3>Usuários Registrados</h3>
                     <p><small>Lista de usuários que já fizeram login. Use para adicionar jogadores às listas de futebol.</small></p>
                     <div class="admin-user-actions">
                         <input type="text" id="admin-search-user" placeholder="Buscar usuário por nome ou UID...">
                     </div>
                     <ul id="admin-all-users-list">
-                        </ul>
+                    </ul>
                 </div>
             </div>
         </div>
         <p id="error-message" class="error-message"></p>
-    </div><script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
+    </div>
+    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-database-compat.js"></script>
 

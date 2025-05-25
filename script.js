@@ -8,7 +8,7 @@ const firebaseConfig = {
     messagingSenderId: "410645587358",
     appId: "1:410645587358:web:5777a493ef77112f16228f",
     measurementId: "G-LJBYMWJM9C"
-  };
+};
 
 // Inicializar Firebase
 firebase.initializeApp(firebaseConfig);
@@ -111,11 +111,11 @@ function getMostRecentListOpenTimestamp() {
     }
     const nowInBrasiliaView = getCurrentBrasiliaDateTimeParts().dateObject;
     let listOpenDateTimeInBrasiliaView = new Date(nowInBrasiliaView.getTime());
-    
+
     const dayDifference = (nowInBrasiliaView.getDay() - currentScheduleConfig.openDay + 7) % 7;
     listOpenDateTimeInBrasiliaView.setDate(nowInBrasiliaView.getDate() - dayDifference);
     listOpenDateTimeInBrasiliaView.setHours(currentScheduleConfig.openHour, currentScheduleConfig.openMinute, 0, 0);
-    
+
     if (listOpenDateTimeInBrasiliaView.getTime() > nowInBrasiliaView.getTime()) {
         listOpenDateTimeInBrasiliaView.setDate(listOpenDateTimeInBrasiliaView.getDate() - 7);
     }
@@ -131,9 +131,9 @@ function updateListAvailabilityUI() {
         if (confirmPresenceButton) confirmPresenceButton.disabled = true;
         return;
     }
-     if (!scheduleConfigLoaded && !currentUser) { // Se deslogado e config não carregou
+    if (!scheduleConfigLoaded && !currentUser) { // Se deslogado e config não carregou
         if (listStatusMessageElement) listStatusMessageElement.textContent = "Faça login para ver o status da lista.";
-         if (confirmPresenceButton) confirmPresenceButton.disabled = true;
+        if (confirmPresenceButton) confirmPresenceButton.disabled = true;
         return;
     }
 
@@ -146,13 +146,13 @@ function updateListAvailabilityUI() {
         } else {
             const dias = ["Domingo", "Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"];
             const openTimeStr = `${dias[currentScheduleConfig.openDay]} às ${String(currentScheduleConfig.openHour).padStart(2, '0')}:${String(currentScheduleConfig.openMinute).padStart(2, '0')}`;
-            
-            let closeMinuteDisplay = String(currentScheduleConfig.closeMinute).padStart(2,'0');
+
+            let closeMinuteDisplay = String(currentScheduleConfig.closeMinute).padStart(2, '0');
             if (currentScheduleConfig.closeMinute === 1 && currentScheduleConfig.closeHour === 16) { // Lógica específica para "16:01 perde a vaga"
                 closeMinuteDisplay = "01";
             }
             const closeTimeStr = `${dias[currentScheduleConfig.closeDay]} às ${String(currentScheduleConfig.closeHour).padStart(2, '0')}:${closeMinuteDisplay}`;
-            
+
             listStatusMessageElement.textContent = `Lista FECHADA. Abre ${openTimeStr}, fecha ${closeTimeStr}.`;
             listStatusMessageElement.className = 'list-status closed';
         }
@@ -180,14 +180,14 @@ function fetchScheduleSettings() {
             // currentScheduleConfig já tem os valores padrão
         }
         scheduleConfigLoaded = true;
-        
+
         updateListAvailabilityUI(); // Atualiza a UI com base nas configs carregadas/padrão
-        if (currentUser && isCurrentUserAdmin) {
+        if (currentUser) {
             checkAndPerformAdminAutoAdd(); // Verifica se precisa adicionar admins
         }
     }, (error) => {
         console.error("Erro ao buscar config. de horário:", error);
-        scheduleConfigLoaded = true; // Permite que a app continue com defaults
+        // scheduleConfigLoaded = true; // Permite que a app continue com defaults
         updateListAvailabilityUI(); // Atualiza UI mesmo com erro (mostrará padrão)
     });
 }
@@ -230,9 +230,9 @@ auth.onAuthStateChanged(user => {
             }
             loadLists();
             // updateListAvailabilityUI() será chamado quando scheduleConfigLoaded for true
-            if(scheduleConfigLoaded) {
+            if (scheduleConfigLoaded) {
                 updateListAvailabilityUI();
-                if(isCurrentUserAdmin) checkAndPerformAdminAutoAdd(); // Chama aqui também se config já carregou
+                if (isCurrentUserAdmin) checkAndPerformAdminAutoAdd(); // Chama aqui também se config já carregou
             }
 
         }).catch(error => {
@@ -240,7 +240,7 @@ auth.onAuthStateChanged(user => {
             isCurrentUserAdmin = false;
             if (adminTabButton) adminTabButton.style.display = 'none';
             loadLists();
-            if(scheduleConfigLoaded) updateListAvailabilityUI();
+            if (scheduleConfigLoaded) updateListAvailabilityUI();
         });
     } else {
         isCurrentUserAdmin = false;
@@ -250,10 +250,10 @@ auth.onAuthStateChanged(user => {
         logoutButton.style.display = 'none';
         if (tabsContainer) tabsContainer.style.display = 'none';
         if (adminTabButton) adminTabButton.style.display = 'none';
-        
+
         if (listStatusMessageElement) {
-             // Se scheduleConfigLoaded, mostra msg de fechado, senão limpa.
-            if(scheduleConfigLoaded) updateListAvailabilityUI();
+            // Se scheduleConfigLoaded, mostra msg de fechado, senão limpa.
+            if (scheduleConfigLoaded) updateListAvailabilityUI();
             else listStatusMessageElement.textContent = '';
         }
         if (confirmPresenceButton) confirmPresenceButton.disabled = true;
@@ -300,7 +300,7 @@ if (tabButtons && tabContents) {
 
 // --- Adição Automática de Admins ---
 async function checkAndPerformAdminAutoAdd() {
-    if (!isCurrentUserAdmin || !scheduleConfigLoaded || !isListCurrentlyOpen()) {
+    if (!scheduleConfigLoaded || !isListCurrentlyOpen()) {
         if (!scheduleConfigLoaded) console.log("Auto-add: Horários não carregados.");
         else if (!isListCurrentlyOpen()) console.log("Auto-add: Lista não está aberta.");
         return;
@@ -324,12 +324,12 @@ async function checkAndPerformAdminAutoAdd() {
                 return;
             }
             const adminUids = Object.keys(adminUidsMap);
-            
+
             const [confirmedSnapshot, allLoginsSnapshot] = await Promise.all([
                 confirmedPlayersRef.once('value'),
                 database.ref('allUsersLogins').once('value')
             ]);
-            
+
             let confirmedPlayers = confirmedSnapshot.val() || {};
             const allLogins = allLoginsSnapshot.val() || {};
 
@@ -356,12 +356,12 @@ async function checkAndPerformAdminAutoAdd() {
                         console.log(`Admin ${adminName} não pôde ser adicionado (limite de linha).`);
                     }
                 } else {
-                    console.log(`Admin ${allLogins[adminUid]?.name || adminUid.substring(0,6)} já está na lista.`);
+                    console.log(`Admin ${allLogins[adminUid]?.name || adminUid.substring(0, 6)} já está na lista.`);
                 }
             }
             if (adminsAddedCount > 0) displayErrorMessage(`${adminsAddedCount} administrador(es) adicionado(s).`);
             else if (adminUids.length > 0) displayErrorMessage("Administradores já estavam na lista ou não havia vagas.");
-            
+
             await scheduleStateRef.set(currentCycleTimestamp);
         } else {
             console.log("Adição de admins para este ciclo já feita ou não é o momento.");
@@ -520,7 +520,7 @@ async function checkWaitingListAndPromote() {
                 }
             }
             if (promoted) {
-                break; 
+                break;
             }
         }
     } catch (error) {
@@ -551,7 +551,7 @@ function renderPlayerListItem(player, index, listTypeIdentifier) {
         gkIndicator.classList.add('player-info');
         gkIndicator.textContent = ' (Goleiro)';
         if (listTypeIdentifier === 'confirmed-fp' || listTypeIdentifier === 'waiting') {
-             playerTextInfo.appendChild(gkIndicator);
+            playerTextInfo.appendChild(gkIndicator);
         }
     }
     li.appendChild(playerTextInfo);
@@ -562,8 +562,8 @@ function renderPlayerListItem(player, index, listTypeIdentifier) {
         removeBtn.textContent = (isCurrentUserAdmin && currentUser.uid !== player.id) ? 'Remover' : 'Sair';
         if (isCurrentUserAdmin && currentUser.uid !== player.id) {
             removeBtn.style.backgroundColor = '#f39c12';
-        } else if (isCurrentUserAdmin && currentUser.uid === player.id){
-             // removeBtn.textContent = 'Sair (Admin)';
+        } else if (isCurrentUserAdmin && currentUser.uid === player.id) {
+            // removeBtn.textContent = 'Sair (Admin)';
         }
         const listTypeForRemove = listTypeIdentifier.startsWith('confirmed') ? 'confirmed' : 'waiting';
         removeBtn.onclick = () => removePlayer(player.id, listTypeForRemove);
@@ -573,12 +573,12 @@ function renderPlayerListItem(player, index, listTypeIdentifier) {
 }
 
 function renderConfirmedLists(confirmedPlayersObject) {
-    if(confirmedGoalkeepersListElement) confirmedGoalkeepersListElement.innerHTML = '';
-    if(confirmedFieldPlayersListElement) confirmedFieldPlayersListElement.innerHTML = '';
+    if (confirmedGoalkeepersListElement) confirmedGoalkeepersListElement.innerHTML = '';
+    if (confirmedFieldPlayersListElement) confirmedFieldPlayersListElement.innerHTML = '';
 
     if (!confirmedPlayersObject) {
-        if(confirmedGkCountSpan) confirmedGkCountSpan.textContent = 0;
-        if(confirmedFpCountSpan) confirmedFpCountSpan.textContent = 0;
+        if (confirmedGkCountSpan) confirmedGkCountSpan.textContent = 0;
+        if (confirmedFpCountSpan) confirmedFpCountSpan.textContent = 0;
         return;
     }
 
@@ -598,20 +598,20 @@ function renderConfirmedLists(confirmedPlayersObject) {
     });
 
     goalkeepers.forEach((player, index) => {
-        if(confirmedGoalkeepersListElement) confirmedGoalkeepersListElement.appendChild(renderPlayerListItem(player, index, 'confirmed-gk'));
+        if (confirmedGoalkeepersListElement) confirmedGoalkeepersListElement.appendChild(renderPlayerListItem(player, index, 'confirmed-gk'));
     });
-    if(confirmedGkCountSpan) confirmedGkCountSpan.textContent = goalkeepers.length;
+    if (confirmedGkCountSpan) confirmedGkCountSpan.textContent = goalkeepers.length;
 
     fieldPlayers.forEach((player, index) => {
-        if(confirmedFieldPlayersListElement) confirmedFieldPlayersListElement.appendChild(renderPlayerListItem(player, index, 'confirmed-fp'));
+        if (confirmedFieldPlayersListElement) confirmedFieldPlayersListElement.appendChild(renderPlayerListItem(player, index, 'confirmed-fp'));
     });
-    if(confirmedFpCountSpan) confirmedFpCountSpan.textContent = fieldPlayers.length;
+    if (confirmedFpCountSpan) confirmedFpCountSpan.textContent = fieldPlayers.length;
 }
 
 function renderWaitingList(waitingPlayersObject) {
-    if(waitingListElement) waitingListElement.innerHTML = '';
+    if (waitingListElement) waitingListElement.innerHTML = '';
     if (!waitingPlayersObject) {
-        if(waitingCountSpan) waitingCountSpan.textContent = 0;
+        if (waitingCountSpan) waitingCountSpan.textContent = 0;
         return;
     }
 
@@ -620,19 +620,19 @@ function renderWaitingList(waitingPlayersObject) {
         .sort((a, b) => a.timestamp - b.timestamp);
 
     waitingArray.forEach((player, index) => {
-        if(waitingListElement) waitingListElement.appendChild(renderPlayerListItem(player, index, 'waiting'));
+        if (waitingListElement) waitingListElement.appendChild(renderPlayerListItem(player, index, 'waiting'));
     });
-    if(waitingCountSpan) waitingCountSpan.textContent = waitingArray.length;
+    if (waitingCountSpan) waitingCountSpan.textContent = waitingArray.length;
 }
 
 function clearListsUI() {
-    if(confirmedGoalkeepersListElement) confirmedGoalkeepersListElement.innerHTML = '';
-    if(confirmedFieldPlayersListElement) confirmedFieldPlayersListElement.innerHTML = '';
-    if(waitingListElement) waitingListElement.innerHTML = '';
-    if(confirmedGkCountSpan) confirmedGkCountSpan.textContent = '0';
-    if(confirmedFpCountSpan) confirmedFpCountSpan.textContent = '0';
-    if(waitingCountSpan) waitingCountSpan.textContent = '0';
-    if(listStatusMessageElement) listStatusMessageElement.textContent = '';
+    if (confirmedGoalkeepersListElement) confirmedGoalkeepersListElement.innerHTML = '';
+    if (confirmedFieldPlayersListElement) confirmedFieldPlayersListElement.innerHTML = '';
+    if (waitingListElement) waitingListElement.innerHTML = '';
+    if (confirmedGkCountSpan) confirmedGkCountSpan.textContent = '0';
+    if (confirmedFpCountSpan) confirmedFpCountSpan.textContent = '0';
+    if (waitingCountSpan) waitingCountSpan.textContent = '0';
+    if (listStatusMessageElement) listStatusMessageElement.textContent = '';
 }
 
 // --- Funções para o Painel do Admin ---
@@ -671,7 +671,7 @@ function renderAdminUserListItemForPanel(user, isConfirmed, isInWaitingList) {
         isGoalkeeperCheckboxForAdmin.id = `admin-add-gk-${user.id}`;
         isGoalkeeperCheckboxForAdmin.classList.add('admin-add-gk-checkbox');
         isGoalkeeperCheckboxForAdmin.style.verticalAlign = 'middle';
-        
+
         gkLabel.htmlFor = isGoalkeeperCheckboxForAdmin.id;
 
         const addButton = document.createElement('button');
@@ -755,7 +755,7 @@ function filterAndRenderAdminUserList(searchTerm = "") {
     const filteredUsers = allUsersDataForAdminCache.filter(user =>
         user.name.toLowerCase().includes(lowerSearchTerm) || user.id.toLowerCase().includes(lowerSearchTerm)
     );
-    
+
     Promise.all([
         confirmedPlayersRef.once('value'),
         waitingListRef.once('value')
@@ -792,25 +792,25 @@ function loadAndRenderAllUsersListForAdmin() {
             allUsersDataForAdminCache = Object.entries(usersData)
                 .map(([id, data]) => ({ id, ...data }))
                 .sort((a, b) => b.lastLogin - a.lastLogin);
-            
+
             const adminPanelTab = document.getElementById('tab-admin-panel');
-            if(adminPanelTab && adminPanelTab.classList.contains('active')) {
+            if (adminPanelTab && adminPanelTab.classList.contains('active')) {
                 filterAndRenderAdminUserList(adminSearchUserInput ? adminSearchUserInput.value : "");
             }
         } else {
             allUsersDataForAdminCache = [];
-            if(adminAllUsersListElement) adminAllUsersListElement.innerHTML = '<li>Nenhum login de usuário registrado ainda.</li>';
+            if (adminAllUsersListElement) adminAllUsersListElement.innerHTML = '<li>Nenhum login de usuário registrado ainda.</li>';
         }
     }, error => {
         console.error("Erro ao carregar lista de usuários para admin:", error);
-        if(adminAllUsersListElement) adminAllUsersListElement.innerHTML = '<li>Erro ao carregar lista de usuários.</li>';
+        if (adminAllUsersListElement) adminAllUsersListElement.innerHTML = '<li>Erro ao carregar lista de usuários.</li>';
         allUsersDataForAdminCache = [];
     });
 }
 
 // --- Listeners do Firebase para Atualizações em Tempo Real (Listas de Jogo) ---
 function loadLists() {
-    if(scheduleConfigLoaded) updateListAvailabilityUI(); // Atualiza status da lista baseado nas configs
+    if (scheduleConfigLoaded) updateListAvailabilityUI(); // Atualiza status da lista baseado nas configs
 
     if (confirmedPlayersRef) {
         confirmedPlayersRef.on('value', snapshot => {

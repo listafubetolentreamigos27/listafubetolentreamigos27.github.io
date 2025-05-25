@@ -30,21 +30,21 @@ body {
     border: 1px solid #bee0f7;
 }
 
-.game-info-header h1 {
-    font-size: 1.8em;
-    color: #1a5ca3;
-    margin-bottom: 20px;
-    text-align: center;
-}
+    .game-info-header h1 {
+        font-size: 1.8em;
+        color: #1a5ca3;
+        margin-bottom: 20px;
+        text-align: center;
+    }
 
-.game-info-header h3 {
-    font-size: 1.1em;
-    color: #2c3e50;
-    margin-top: 0;
-    margin-bottom: 10px;
-    border-bottom: 1px solid #bdc3c7;
-    padding-bottom: 5px;
-}
+    .game-info-header h3 {
+        font-size: 1.1em;
+        color: #2c3e50;
+        margin-top: 0;
+        margin-bottom: 10px;
+        border-bottom: 1px solid #bdc3c7;
+        padding-bottom: 5px;
+    }
 
 .game-details-grid {
     display: grid;
@@ -60,24 +60,25 @@ body {
     box-shadow: 0 2px 4px rgba(0,0,0,0.05);
 }
 
-.info-section p {
-    margin: 8px 0;
-    font-size: 0.95em;
-    line-height: 1.6;
-}
+    .info-section p {
+        margin: 8px 0;
+        font-size: 0.95em;
+        line-height: 1.6;
+    }
 
-.info-section .label {
-    font-weight: bold;
-    color: #34495e;
-}
+    .info-section .label {
+        font-weight: bold;
+        color: #34495e;
+    }
 
 .warning-text {
     color: #c0392b;
     font-weight: bold;
 }
-.warning-text .label {
-    color: #c0392b;
-}
+
+    .warning-text .label {
+        color: #c0392b;
+    }
 
 .payment-info a, .external-links a {
     color: #2980b9;
@@ -85,20 +86,22 @@ body {
     font-weight: bold;
     word-break: break-all; /* Para URLs longas não quebrarem o layout */
 }
-.payment-info a:hover, .external-links a:hover {
-    text-decoration: underline;
-    color: #1f638b;
-}
+
+    .payment-info a:hover, .external-links a:hover {
+        text-decoration: underline;
+        color: #1f638b;
+    }
 
 .external-links {
     margin-top: 15px;
     padding-top: 15px;
     border-top: 1px dashed #ccc;
 }
-.external-links p {
-    margin: 8px 0;
-    text-align: center;
-}
+
+    .external-links p {
+        margin: 8px 0;
+        text-align: center;
+    }
 
 
 /* Contêiner de Autenticação */
@@ -109,11 +112,13 @@ body {
     background-color: #f9f9f9;
     border-radius: 6px;
 }
+
 #user-info {
     font-size: 0.9em;
     color: #555;
     margin-bottom: 10px;
 }
+
 button {
     background-color: #3498db;
     color: white;
@@ -125,15 +130,18 @@ button {
     transition: background-color 0.3s ease;
     margin: 5px;
 }
-button:hover {
-    background-color: #2980b9;
-}
+
+    button:hover {
+        background-color: #2980b9;
+    }
+
 #logout-button {
     background-color: #e74c3c;
 }
-#logout-button:hover {
-    background-color: #c0392b;
-}
+
+    #logout-button:hover {
+        background-color: #c0392b;
+    }
 
 /* --- Estilos para Abas --- */
 .tabs-container {
@@ -164,47 +172,54 @@ button:hover {
     white-space: nowrap; /* Evita quebra de linha no texto do botão */
     flex-shrink: 0; /* Impede que botões encolham demais */
 }
-.tab-button:last-child {
-    border-right: none;
-}
-.tab-button:hover {
-    background-color: #e9ecef;
-}
-.tab-button.active {
-    background-color: #fff;
-    color: #007bff;
-    border-bottom: 3px solid #007bff; /* Borda mais grossa para destaque */
-    font-weight: bold;
-    position: relative;
-    /* top: 1px; /* Removido para simplificar, a borda inferior já faz o efeito */
-}
+
+    .tab-button:last-child {
+        border-right: none;
+    }
+
+    .tab-button:hover {
+        background-color: #e9ecef;
+    }
+
+    .tab-button.active {
+        background-color: #fff;
+        color: #007bff;
+        border-bottom: 3px solid #007bff; /* Borda mais grossa para destaque */
+        font-weight: bold;
+        position: relative;
+        /* top: 1px; /* Removido para simplificar, a borda inferior já faz o efeito */
+    }
 
 .tab-content {
     display: none;
     padding: 20px;
     border-top: none;
 }
-.tab-content.active {
-    display: block;
-}
 
-/* Controles dentro da Aba de Listas de Jogo */
-.tab-content .controls {
-    margin-bottom: 25px;
-    display: flex;
-    align-items: center;
-    gap: 15px; /* Espaço entre label/checkbox e botão */
-    flex-wrap: wrap; /* Permite quebra de linha se não couber */
-}
-.tab-content .controls label {
-    font-size: 0.95em;
-    align-items: center;
-}
+    .tab-content.active {
+        display: block;
+    }
+
+    /* Controles dentro da Aba de Listas de Jogo */
+    .tab-content .controls {
+        margin-bottom: 25px;
+        display: flex;
+        align-items: center;
+        gap: 15px; /* Espaço entre label/checkbox e botão */
+        flex-wrap: wrap; /* Permite quebra de linha se não couber */
+    }
+
+        .tab-content .controls label {
+            font-size: 0.95em;
+            align-items: center;
+        }
+
 #is-goalkeeper {
     margin-left: 10px;
     transform: scale(1.4); /* Checkbox um pouco maior */
     vertical-align: middle;
 }
+
 #confirm-presence-button {
     padding: 10px 20px; /* Padding generoso para toque */
     font-size: 1em;
@@ -214,31 +229,35 @@ button:hover {
 .list-section {
     margin-bottom: 25px;
 }
-.list-section:last-child {
-    margin-bottom: 0;
-}
-.list-section h2 {
-    color: #2c3e50;
-    border-bottom: 2px solid #3498db;
-    padding-bottom: 8px;
-    margin-top: 0; /* Remove margem superior do h2 dentro da tab */
-    margin-bottom: 15px;
-    font-size: 1.3em;
-}
-.list-section ul {
-    list-style-type: none;
-    padding: 0;
-}
-.list-section ul li {
-    background-color: #ecf0f1;
-    padding: 10px 12px;
-    margin-bottom: 8px;
-    border-radius: 4px;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    line-height: 1.4;
-}
+
+    .list-section:last-child {
+        margin-bottom: 0;
+    }
+
+    .list-section h2 {
+        color: #2c3e50;
+        border-bottom: 2px solid #3498db;
+        padding-bottom: 8px;
+        margin-top: 0; /* Remove margem superior do h2 dentro da tab */
+        margin-bottom: 15px;
+        font-size: 1.3em;
+    }
+
+    .list-section ul {
+        list-style-type: none;
+        padding: 0;
+    }
+
+        .list-section ul li {
+            background-color: #ecf0f1;
+            padding: 10px 12px;
+            margin-bottom: 8px;
+            border-radius: 4px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            line-height: 1.4;
+        }
 
 .player-text-info {
     display: flex;
@@ -247,23 +266,27 @@ button:hover {
     flex-grow: 1; /* Permite que o texto cresça */
     margin-right: 10px; /* Espaço antes do botão de remover */
     overflow-wrap: break-word; /* Quebra palavras longas */
-    word-break: break-word;   /* Quebra palavras longas */
+    word-break: break-word; /* Quebra palavras longas */
 }
+
 .list-section li .player-order {
     font-weight: normal;
     color: #555;
     flex-shrink: 0; /* Não encolhe o número */
 }
+
 .list-section li .player-name {
     font-weight: bold;
     color: #2c3e50;
 }
+
 .list-section li .player-info {
     font-size: 0.85em;
     color: #7f8c8d;
     margin-left: 4px;
     white-space: nowrap; /* Evita que "(Goleiro)" quebre */
 }
+
 .list-section li .remove-button {
     background-color: #e74c3c;
     color: white;
@@ -276,27 +299,30 @@ button:hover {
     white-space: nowrap;
     flex-shrink: 0; /* Não encolhe o botão */
 }
-.list-section li .remove-button:hover {
-    background-color: #c0392b;
-}
+
+    .list-section li .remove-button:hover {
+        background-color: #c0392b;
+    }
 
 /* Estilos para o Conteúdo do Painel do Admin (dentro da aba) */
 .admin-panel-content {
     border-radius: 6px;
 }
-.admin-panel-content h3 {
-    color: #333;
-    padding-bottom: 8px;
-    margin-top: 0;
-    margin-bottom: 15px;
-    font-size: 1.4em;
-}
-.admin-panel-content p small {
-    font-size: 0.9em;
-    color: #555;
-    display: block;
-    margin-bottom: 15px;
-}
+
+    .admin-panel-content h3 {
+        color: #333;
+        padding-bottom: 8px;
+        margin-top: 0;
+        margin-bottom: 15px;
+        font-size: 1.4em;
+    }
+
+    .admin-panel-content p small {
+        font-size: 0.9em;
+        color: #555;
+        display: block;
+        margin-bottom: 15px;
+    }
 
 #admin-search-user {
     width: 100%;
@@ -325,9 +351,10 @@ button:hover {
     align-items: center;
     gap: 15px;
 }
-.admin-user-item:last-child {
-    border-bottom: none;
-}
+
+    .admin-user-item:last-child {
+        border-bottom: none;
+    }
 
 .admin-user-info {
     flex-grow: 1;
@@ -335,14 +362,16 @@ button:hover {
     overflow-wrap: break-word;
     word-break: break-word;
 }
-.admin-user-info strong {
-    color: #212529;
-}
-.admin-user-info small {
-    color: #6c757d;
-    font-size: 0.85em;
-    margin-left: 6px;
-}
+
+    .admin-user-info strong {
+        color: #212529;
+    }
+
+    .admin-user-info small {
+        color: #6c757d;
+        font-size: 0.85em;
+        margin-left: 6px;
+    }
 
 .status-badge {
     font-size: 0.8em;
@@ -354,8 +383,14 @@ button:hover {
     vertical-align: middle;
     white-space: nowrap;
 }
-.confirmed-badge { background-color: #5cb85c; }
-.waiting-badge { background-color: #f0ad4e; }
+
+.confirmed-badge {
+    background-color: #5cb85c;
+}
+
+.waiting-badge {
+    background-color: #f0ad4e;
+}
 
 .admin-user-item-actions {
     display: flex;
@@ -363,28 +398,32 @@ button:hover {
     white-space: nowrap;
     flex-shrink: 0; /* Não encolhe o container de ações */
 }
-.admin-user-item-actions label {
-    font-size: 0.9em;
-    color: #495057;
-    margin-right: 3px;
-}
-.admin-user-item-actions .admin-add-gk-checkbox {
-    margin-right: 8px; /* Espaço depois do checkbox */
-    transform: scale(1.4);
-    vertical-align: middle;
-}
-.admin-user-item-actions .admin-add-button {
-    background-color: #28a745;
-    color: white;
-    border: none;
-    padding: 6px 12px;
-    border-radius: 4px;
-    cursor: pointer;
-    font-size: 0.9em;
-}
-.admin-user-item-actions .admin-add-button:hover {
-    background-color: #218838;
-}
+
+    .admin-user-item-actions label {
+        font-size: 0.9em;
+        color: #495057;
+        margin-right: 3px;
+    }
+
+    .admin-user-item-actions .admin-add-gk-checkbox {
+        margin-right: 8px; /* Espaço depois do checkbox */
+        transform: scale(1.4);
+        vertical-align: middle;
+    }
+
+    .admin-user-item-actions .admin-add-button {
+        background-color: #28a745;
+        color: white;
+        border: none;
+        padding: 6px 12px;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 0.9em;
+    }
+
+        .admin-user-item-actions .admin-add-button:hover {
+            background-color: #218838;
+        }
 
 .error-message {
     color: #e74c3c;
@@ -409,17 +448,17 @@ button:hover {
     font-size: 0.95em;
 }
 
-.list-status.open {
-    background-color: #d4edda; /* Verde claro */
-    color: #155724; /* Verde escuro */
-    border: 1px solid #c3e6cb;
-}
+    .list-status.open {
+        background-color: #d4edda; /* Verde claro */
+        color: #155724; /* Verde escuro */
+        border: 1px solid #c3e6cb;
+    }
 
-.list-status.closed {
-    background-color: #f8d7da; /* Vermelho claro */
-    color: #721c24; /* Vermelho escuro */
-    border: 1px solid #f5c6cb;
-}
+    .list-status.closed {
+        background-color: #f8d7da; /* Vermelho claro */
+        color: #721c24; /* Vermelho escuro */
+        border: 1px solid #f5c6cb;
+    }
 
 
 /* === Media Queries para Responsividade Mobile === */
@@ -428,22 +467,28 @@ button:hover {
     .container {
         padding: 15px;
     }
+
     .game-info-header h1 {
         font-size: 1.5em;
     }
+
     .game-info-header h3 {
         font-size: 1.05em;
     }
+
     .info-section p {
         font-size: 0.9em;
     }
+
     .tab-button {
         padding: 10px 15px;
         font-size: 0.95em;
     }
+
     .list-section h2 {
         font-size: 1.25em;
     }
+
     .admin-panel-content h3 {
         font-size: 1.3em;
     }
@@ -453,6 +498,7 @@ button:hover {
     body {
         padding: 5px; /* Mínimo padding no body */
     }
+
     .container {
         padding: 10px;
     }
@@ -460,39 +506,47 @@ button:hover {
     .game-info-header {
         padding: 15px;
     }
-    .game-info-header h1 {
-        font-size: 1.3em; /* Título principal menor */
-        margin-bottom: 15px;
-    }
+
+        .game-info-header h1 {
+            font-size: 1.3em; /* Título principal menor */
+            margin-bottom: 15px;
+        }
+
     .game-details-grid {
         gap: 10px; /* Reduz gap do grid */
     }
+
     .info-section {
         padding: 10px; /* Menos padding nas seções de info */
     }
-    .info-section p {
-        font-size: 0.85em;
-    }
+
+        .info-section p {
+            font-size: 0.85em;
+        }
 
     .tab-buttons {
         /* Se houver muitos botões de aba, o scroll horizontal já está ativo */
     }
+
     .tab-button {
         padding: 9px 10px;
         font-size: 0.85em;
     }
+
     .tab-content {
         padding: 10px;
     }
 
-    .tab-content .controls {
-        flex-direction: column; /* Empilha "Sou goleiro?" e botão */
-        align-items: stretch; /* Estica os itens para ocupar a largura */
-        gap: 5px;
-    }
-    .tab-content .controls label {
-        justify-content: center; /* Espalha checkbox do texto "Sou goleiro?" */
-    }
+        .tab-content .controls {
+            flex-direction: column; /* Empilha "Sou goleiro?" e botão */
+            align-items: stretch; /* Estica os itens para ocupar a largura */
+            gap: 5px;
+        }
+
+            .tab-content .controls label {
+                justify-content: center; /* Espalha checkbox do texto "Sou goleiro?" */
+            }
+
     #confirm-presence-button {
         width: 100%;
         padding: 12px;
@@ -502,21 +556,22 @@ button:hover {
     .list-section h2 {
         font-size: 1.15em;
     }
+
     .player-text-info {
         margin-right: 0; /* Remove margem quando empilhado */
         margin-bottom: 5px; /* Espaço abaixo do texto antes do botão, se empilhado */
         width: 100%; /* Para que a quebra de palavra funcione bem */
     }
 
-     .list-section ul li {
+    .list-section ul li {
         padding: 8px 10px;
         align-items: flex-start; /* Alinha tudo à esquerda */
         gap: 8px; /* Espaço entre info e botão quando empilhado */
     }
 
-     .admin-user-item {
+    .admin-user-item {
         padding: 8px 10px;
-         flex-direction: column;
+        flex-direction: column;
         align-items: flex-start; /* Alinha tudo à esquerda */
         gap: 8px; /* Espaço entre info e botão quando empilhado */
     }
@@ -525,54 +580,64 @@ button:hover {
     .admin-panel-content h3 {
         font-size: 1.2em;
     }
+
     #admin-search-user {
         padding: 9px;
         font-size: 0.9em;
     }
-    
+
     .admin-user-info {
         margin-right: 0; /* Remove margem */
         margin-bottom: 8px; /* Espaço abaixo da info do usuário */
         width: 100%;
     }
+
     .admin-user-item-actions {
         width: 100%; /* Ações ocupam largura total */
         gap: 10px;
     }
-    .admin-user-item-actions .admin-add-gk-checkbox {
-        margin-left: 0;
-        margin-right: 0; /* Checkbox alinhado pela label */
-    }
-    .admin-user-item-actions .admin-add-button {
-        width: 40%;
-        margin-left: 0;
-        padding: 10px; 
-        margin-left: auto; /* Garante que o botão fique à direita mesmo se o texto for curto */
-        white-space: nowrap;
-        flex-shrink: 0; /* Não encolhe o botão */
-    }
+
+        .admin-user-item-actions .admin-add-gk-checkbox {
+            margin-left: 0;
+            margin-right: 0; /* Checkbox alinhado pela label */
+        }
+
+        .admin-user-item-actions .admin-add-button {
+            width: 40%;
+            margin-left: 0;
+            padding: 10px;
+            margin-left: auto; /* Garante que o botão fique à direita mesmo se o texto for curto */
+            white-space: nowrap;
+            flex-shrink: 0; /* Não encolhe o botão */
+        }
 }
 
 @media (max-width: 420px) { /* Telas muito pequenas */
     .game-info-header h1 {
         font-size: 1.15em;
     }
+
     .tab-button {
         font-size: 0.8em; /* Botões de aba ainda menores */
         padding: 8px 6px;
     }
+
     .list-section h2 {
         font-size: 1.05em;
     }
+
     .player-name, .admin-user-info strong {
         font-size: 0.9em;
     }
-     .list-section li .remove-button, .admin-user-item-actions .admin-add-button {
+
+    .list-section li .remove-button, .admin-user-item-actions .admin-add-button {
         font-size: 0.85em;
     }
+
     .info-section p, .external-links p {
         font-size: 0.8em;
     }
+
     .tab-content .controls label, #confirm-presence-button {
         font-size: 0.9em;
     }
