@@ -675,7 +675,7 @@ function renderAdminUserListItemForPanel(user, isConfirmed, isInWaitingList) {
         gkLabel.htmlFor = isGoalkeeperCheckboxForAdmin.id;
 
         const addButton = document.createElement('button');
-        addButton.textContent = 'Adicionar ao Jogo';
+        addButton.textContent = 'Adicionar';
         addButton.classList.add('admin-add-button');
         addButton.onclick = () => adminAddPlayerToGame(user.id, user.name, isGoalkeeperCheckboxForAdmin.checked);
 
