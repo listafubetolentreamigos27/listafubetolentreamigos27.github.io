@@ -143,6 +143,12 @@ button {
         background-color: #c0392b;
     }
 
+button i.fab,
+button i.fas,
+button i.far { /* Seleciona os ícones Font Awesome dentro de botões */
+    margin-right: 7px; /* Ajuste o valor conforme necessário */
+}
+
 /* --- Estilos para Abas --- */
 .tabs-container {
     margin-top: 20px;

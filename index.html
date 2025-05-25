@@ -3,8 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Lista de Futebol - Entre Amigos</title>
+    <title>Lista - Futebol Entre Amigos</title>
     <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" integrity="sha512-SnH5WK+bZxgPHs44uWIX+LLJAJ9/2PkPKZ5QiAj6Ta86w+fsb2TkcmfRyVX3pBnMFcV7oQPJkl9QevSCWr3W6A==" crossorigin="anonymous" referrerpolicy="no-referrer" />
 </head>
 <body>
     <div class="container">
@@ -36,20 +37,21 @@
         <p id="list-status-message" class="list-status"></p> <div class="controls"></div>
         <div id="auth-container">
             <p id="user-info">Por favor, faça login para participar.</p>
-            <button id="login-button">Login com Google</button>
-            <button id="logout-button" style="display:none;">Logout</button>
+            <button id="login-button"><i class="fab fa-google"></i> Login com Google</button>
+            <button id="logout-button" style="display:none;"><i class="fas fa-sign-out-alt"></i> Logout</button>
         </div>
 
         <div class="tabs-container" style="display:none;">
             <div class="tab-buttons">
-                <button class="tab-button active" data-tab="tab-game-lists">Listas do Jogo</button>
-                <button class="tab-button" data-tab="tab-admin-panel" id="admin-tab-button" style="display:none;">Painel do Admin</button>
+                <button class="tab-button active" data-tab="tab-game-lists"><i class="fas fa-list-ul"></i> Listas do Jogo</button>
+                <button class="tab-button" data-tab="tab-admin-panel" id="admin-tab-button" style="display:none;"><i class="fas fa-user-shield"></i> Painel do Admin</button>
             </div>
 
             <div class="tab-content active" id="tab-game-lists">
                 <div class="controls">
-                    <label for="is-goalkeeper">Sou goleiro?  <input type="checkbox" id="is-goalkeeper"></label>
-                    <button id="confirm-presence-button">Confirmar Presença</button>
+                    <label for="is-goalkeeper">Sou goleiro?</label>
+                    <input type="checkbox" id="is-goalkeeper">
+                    <button id="confirm-presence-button"><i class="fas fa-user-check"></i> Confirmar Presença</button>
                 </div>
                 <p id="error-message" class="error-message"></p>
                 <div class="list-section">

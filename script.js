@@ -559,12 +559,14 @@ function renderPlayerListItem(player, index, listTypeIdentifier) {
     if (currentUser && (currentUser.uid === player.id || isCurrentUserAdmin)) {
         const removeBtn = document.createElement('button');
         removeBtn.classList.add('remove-button');
-        removeBtn.textContent = (isCurrentUserAdmin && currentUser.uid !== player.id) ? 'Remover' : 'Sair';
+
         if (isCurrentUserAdmin && currentUser.uid !== player.id) {
-            removeBtn.style.backgroundColor = '#f39c12';
-        } else if (isCurrentUserAdmin && currentUser.uid === player.id) {
-            // removeBtn.textContent = 'Sair (Admin)';
+            removeBtn.innerHTML = '<i class="fas fa-user-times"></i> Remover'; // Ícone para admin removendo outro
+            removeBtn.style.backgroundColor = '#f39c12'; // Cor laranja para ação de admin
+        } else {
+            removeBtn.innerHTML = '<i class="fas fa-sign-out-alt"></i> Sair'; // Ícone para sair (pode ser o mesmo de logout)
         }
+
         const listTypeForRemove = listTypeIdentifier.startsWith('confirmed') ? 'confirmed' : 'waiting';
         removeBtn.onclick = () => removePlayer(player.id, listTypeForRemove);
         li.appendChild(removeBtn);
@@ -661,6 +663,7 @@ function renderAdminUserListItemForPanel(user, isConfirmed, isInWaitingList) {
     actionsDiv.classList.add('admin-user-item-actions');
 
     if (!isConfirmed && !isInWaitingList) {
+        // ... (criação do gkLabel e isGoalkeeperCheckboxForAdmin permanece igual) ...
         const gkLabel = document.createElement('label');
         gkLabel.textContent = 'Goleiro? ';
         gkLabel.style.marginRight = '5px';
@@ -675,7 +678,7 @@ function renderAdminUserListItemForPanel(user, isConfirmed, isInWaitingList) {
         gkLabel.htmlFor = isGoalkeeperCheckboxForAdmin.id;
 
         const addButton = document.createElement('button');
-        addButton.textContent = 'Adicionar';
+        addButton.innerHTML = '<i class="fas fa-user-plus"></i> Adicionar ao Jogo'; // Adiciona o ícone
         addButton.classList.add('admin-add-button');
         addButton.onclick = () => adminAddPlayerToGame(user.id, user.name, isGoalkeeperCheckboxForAdmin.checked);
 
