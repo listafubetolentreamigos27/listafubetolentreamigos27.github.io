@@ -19,14 +19,16 @@ const database = firebase.database();
 const MAX_FIELD_PLAYERS = 20;
 const MAX_GOALKEEPERS = 4;
 
-// --- Constantes do Horário da Lista (Fuso de Brasília) ---
-const LIST_OPEN_DAY = 3; // Quarta-feira (Domingo=0, Segunda=1, ..., Sábado=6)
-const LIST_OPEN_HOUR = 19; // 19:00
-const LIST_OPEN_MINUTE = 0;
-
-const LIST_CLOSE_DAY = 6; // Sábado
-const LIST_CLOSE_HOUR = 16; // 16:00
-const LIST_CLOSE_MINUTE = 10; // Fecha às 16:11, então aberto até 16:10:59 (minuto < 1)
+// --- Configurações do Horário da Lista (valores padrão, serão sobrescritos pelo Firebase) ---
+let currentScheduleConfig = {
+    openDay: 3,    // Quarta-feira (Domingo=0)
+    openHour: 19,  // 19:00
+    openMinute: 0,
+    closeDay: 6,   // Sábado
+    closeHour: 16, // 16:00
+    closeMinute: 1 // Lista fecha às 16:01 (aberto até 16:00:59)
+};
+let scheduleConfigLoaded = false;
 
 // --- Referências do DOM ---
 const loginButton = document.getElementById('login-button');
@@ -66,41 +68,53 @@ let allUsersDataForAdminCache = [];
 // --- Lógica de Horário e Fuso Horário de Brasília ---
 function getCurrentBrasiliaDateTimeParts() {
     const nowUtc = new Date();
+    // 'en-US' é usado para um formato de string mais previsível para o construtor new Date()
+    // A conversão de fuso é feita por timeZone: 'America/Sao_Paulo'
     const brasiliaDateString = nowUtc.toLocaleString('en-US', { timeZone: 'America/Sao_Paulo' });
     const brasiliaEquivalentDate = new Date(brasiliaDateString);
 
     return {
-        dayOfWeek: brasiliaEquivalentDate.getDay(),
+        dayOfWeek: brasiliaEquivalentDate.getDay(), // 0 (Dom) a 6 (Sáb)
         hour: brasiliaEquivalentDate.getHours(),
         minute: brasiliaEquivalentDate.getMinutes(),
-        dateObject: brasiliaEquivalentDate
+        dateObject: brasiliaEquivalentDate // O objeto Date para mais cálculos se necessário
     };
 }
 
 function isListCurrentlyOpen() {
+    if (!scheduleConfigLoaded) {
+        console.warn("Configurações de horário ainda não carregadas, assumindo lista fechada para checagem.");
+        return false;
+    }
     const brasiliaTime = getCurrentBrasiliaDateTimeParts();
     const currentDay = brasiliaTime.dayOfWeek;
     const currentHour = brasiliaTime.hour;
     const currentMinute = brasiliaTime.minute;
 
-    if (currentDay === LIST_OPEN_DAY) {
-        return currentHour > LIST_OPEN_HOUR || (currentHour === LIST_OPEN_HOUR && currentMinute >= LIST_OPEN_MINUTE);
+    if (currentDay === currentScheduleConfig.openDay) { // Dia de abertura (ex: Quarta)
+        return currentHour > currentScheduleConfig.openHour || (currentHour === currentScheduleConfig.openHour && currentMinute >= currentScheduleConfig.openMinute);
     }
-    if (currentDay > LIST_OPEN_DAY && currentDay < LIST_CLOSE_DAY) {
+    if (currentDay > currentScheduleConfig.openDay && currentDay < currentScheduleConfig.closeDay) { // Dias intermediários (ex: Quinta, Sexta)
         return true;
     }
-    if (currentDay === LIST_CLOSE_DAY) {
-        return currentHour < LIST_CLOSE_HOUR || (currentHour === LIST_CLOSE_HOUR && currentMinute < LIST_CLOSE_MINUTE);
+    if (currentDay === currentScheduleConfig.closeDay) { // Dia de fechamento (ex: Sábado)
+        return currentHour < currentScheduleConfig.closeHour || (currentHour === currentScheduleConfig.closeHour && currentMinute < currentScheduleConfig.closeMinute);
     }
-    return false;
+    return false; // Fora do período
 }
 
 function getMostRecentListOpenTimestamp() {
+    if (!scheduleConfigLoaded) {
+        // Não deve ser chamada antes das configs carregarem para lógica crítica como auto-add.
+        // Se chamada, usará os defaults em currentScheduleConfig, o que pode ser ok para UI inicial.
+        console.warn("getMostRecentListOpenTimestamp chamada antes das configs do Firebase serem totalmente carregadas. Usando defaults se disponíveis.");
+    }
     const nowInBrasiliaView = getCurrentBrasiliaDateTimeParts().dateObject;
     let listOpenDateTimeInBrasiliaView = new Date(nowInBrasiliaView.getTime());
-    const dayDifference = (nowInBrasiliaView.getDay() - LIST_OPEN_DAY + 7) % 7;
+    
+    const dayDifference = (nowInBrasiliaView.getDay() - currentScheduleConfig.openDay + 7) % 7;
     listOpenDateTimeInBrasiliaView.setDate(nowInBrasiliaView.getDate() - dayDifference);
-    listOpenDateTimeInBrasiliaView.setHours(LIST_OPEN_HOUR, LIST_OPEN_MINUTE, 0, 0);
+    listOpenDateTimeInBrasiliaView.setHours(currentScheduleConfig.openHour, currentScheduleConfig.openMinute, 0, 0);
     
     if (listOpenDateTimeInBrasiliaView.getTime() > nowInBrasiliaView.getTime()) {
         listOpenDateTimeInBrasiliaView.setDate(listOpenDateTimeInBrasiliaView.getDate() - 7);
@@ -109,13 +123,37 @@ function getMostRecentListOpenTimestamp() {
 }
 
 function updateListAvailabilityUI() {
+    if (!scheduleConfigLoaded && currentUser) {
+        if (listStatusMessageElement) {
+            listStatusMessageElement.textContent = "Verificando horário da lista...";
+            listStatusMessageElement.className = 'list-status neutral';
+        }
+        if (confirmPresenceButton) confirmPresenceButton.disabled = true;
+        return;
+    }
+     if (!scheduleConfigLoaded && !currentUser) { // Se deslogado e config não carregou
+        if (listStatusMessageElement) listStatusMessageElement.textContent = "Faça login para ver o status da lista.";
+         if (confirmPresenceButton) confirmPresenceButton.disabled = true;
+        return;
+    }
+
+
     const isOpen = isListCurrentlyOpen();
     if (listStatusMessageElement) {
         if (isOpen) {
             listStatusMessageElement.textContent = "Lista de presença ABERTA!";
             listStatusMessageElement.className = 'list-status open';
         } else {
-            listStatusMessageElement.textContent = "Lista FECHADA. Abre Quarta 19h, fecha Sábado 16:01.";
+            const dias = ["Domingo", "Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"];
+            const openTimeStr = `${dias[currentScheduleConfig.openDay]} às ${String(currentScheduleConfig.openHour).padStart(2, '0')}:${String(currentScheduleConfig.openMinute).padStart(2, '0')}`;
+            
+            let closeMinuteDisplay = String(currentScheduleConfig.closeMinute).padStart(2,'0');
+            if (currentScheduleConfig.closeMinute === 1 && currentScheduleConfig.closeHour === 16) { // Lógica específica para "16:01 perde a vaga"
+                closeMinuteDisplay = "01";
+            }
+            const closeTimeStr = `${dias[currentScheduleConfig.closeDay]} às ${String(currentScheduleConfig.closeHour).padStart(2, '0')}:${closeMinuteDisplay}`;
+            
+            listStatusMessageElement.textContent = `Lista FECHADA. Abre ${openTimeStr}, fecha ${closeTimeStr}.`;
             listStatusMessageElement.className = 'list-status closed';
         }
     }
@@ -127,6 +165,31 @@ function updateListAvailabilityUI() {
             confirmPresenceButton.disabled = !isOpen;
         }
     }
+}
+
+// --- Carregar Configurações de Horário do Firebase ---
+function fetchScheduleSettings() {
+    const scheduleSettingsRef = database.ref('scheduleSettings');
+    scheduleSettingsRef.on('value', (snapshot) => {
+        const settings = snapshot.val();
+        if (settings && typeof settings.openDay === 'number' && typeof settings.openHour === 'number') {
+            currentScheduleConfig = settings;
+            console.log("Configurações de horário carregadas/atualizadas:", currentScheduleConfig);
+        } else {
+            console.warn("Config. de horário não encontradas ou inválidas no Firebase. Usando padrões.");
+            // currentScheduleConfig já tem os valores padrão
+        }
+        scheduleConfigLoaded = true;
+        
+        updateListAvailabilityUI(); // Atualiza a UI com base nas configs carregadas/padrão
+        if (currentUser && isCurrentUserAdmin) {
+            checkAndPerformAdminAutoAdd(); // Verifica se precisa adicionar admins
+        }
+    }, (error) => {
+        console.error("Erro ao buscar config. de horário:", error);
+        scheduleConfigLoaded = true; // Permite que a app continue com defaults
+        updateListAvailabilityUI(); // Atualiza UI mesmo com erro (mostrará padrão)
+    });
 }
 
 // --- Lógica de Autenticação ---
@@ -155,7 +218,7 @@ auth.onAuthStateChanged(user => {
 
             if (isCurrentUserAdmin) {
                 loadAndRenderAllUsersListForAdmin();
-                checkAndPerformAdminAutoAdd();
+                // checkAndPerformAdminAutoAdd() será chamado após fetchScheduleSettings ter sucesso
             } else {
                 const adminPanelTab = document.getElementById('tab-admin-panel');
                 if (adminPanelTab && adminPanelTab.classList.contains('active')) {
@@ -166,13 +229,18 @@ auth.onAuthStateChanged(user => {
                 allUsersDataForAdminCache = [];
             }
             loadLists();
-            updateListAvailabilityUI();
+            // updateListAvailabilityUI() será chamado quando scheduleConfigLoaded for true
+            if(scheduleConfigLoaded) {
+                updateListAvailabilityUI();
+                if(isCurrentUserAdmin) checkAndPerformAdminAutoAdd(); // Chama aqui também se config já carregou
+            }
+
         }).catch(error => {
             console.error("Erro ao verificar admin:", error);
             isCurrentUserAdmin = false;
             if (adminTabButton) adminTabButton.style.display = 'none';
             loadLists();
-            updateListAvailabilityUI();
+            if(scheduleConfigLoaded) updateListAvailabilityUI();
         });
     } else {
         isCurrentUserAdmin = false;
@@ -182,7 +250,12 @@ auth.onAuthStateChanged(user => {
         logoutButton.style.display = 'none';
         if (tabsContainer) tabsContainer.style.display = 'none';
         if (adminTabButton) adminTabButton.style.display = 'none';
-        if (listStatusMessageElement) listStatusMessageElement.textContent = '';
+        
+        if (listStatusMessageElement) {
+             // Se scheduleConfigLoaded, mostra msg de fechado, senão limpa.
+            if(scheduleConfigLoaded) updateListAvailabilityUI();
+            else listStatusMessageElement.textContent = '';
+        }
         if (confirmPresenceButton) confirmPresenceButton.disabled = true;
 
         clearListsUI();
@@ -227,7 +300,9 @@ if (tabButtons && tabContents) {
 
 // --- Adição Automática de Admins ---
 async function checkAndPerformAdminAutoAdd() {
-    if (!isCurrentUserAdmin || !isListCurrentlyOpen()) {
+    if (!isCurrentUserAdmin || !scheduleConfigLoaded || !isListCurrentlyOpen()) {
+        if (!scheduleConfigLoaded) console.log("Auto-add: Horários não carregados.");
+        else if (!isListCurrentlyOpen()) console.log("Auto-add: Lista não está aberta.");
         return;
     }
     const currentCycleTimestamp = getMostRecentListOpenTimestamp();
@@ -244,7 +319,7 @@ async function checkAndPerformAdminAutoAdd() {
             const adminsSnapshot = await database.ref('admins').once('value');
             const adminUidsMap = adminsSnapshot.val();
             if (!adminUidsMap) {
-                console.log("Nenhum admin configurado.");
+                console.log("Nenhum admin configurado em /admins.");
                 await scheduleStateRef.set(currentCycleTimestamp);
                 return;
             }
@@ -255,10 +330,10 @@ async function checkAndPerformAdminAutoAdd() {
                 database.ref('allUsersLogins').once('value')
             ]);
             
-            let confirmedPlayers = confirmedSnapshot.val() || {}; // Usar let para poder reatribuir localmente
+            let confirmedPlayers = confirmedSnapshot.val() || {};
             const allLogins = allLoginsSnapshot.val() || {};
 
-            let localConfirmedPlayersArray = Object.values(confirmedPlayers);
+            let localConfirmedPlayersArray = Object.values(confirmedPlayers); // Para contagem atual
             let numConfirmedFieldPlayers = localConfirmedPlayersArray.filter(p => !p.isGoalkeeper).length;
 
             let adminsAddedCount = 0;
@@ -275,9 +350,8 @@ async function checkAndPerformAdminAutoAdd() {
                         await confirmedPlayersRef.child(adminUid).set(adminData);
                         console.log(`Admin ${adminName} adicionado automaticamente.`);
                         adminsAddedCount++;
-                        // Atualiza o objeto local para a próxima iteração e contagem
-                        confirmedPlayers[adminUid] = adminData; 
-                        numConfirmedFieldPlayers++;
+                        confirmedPlayers[adminUid] = adminData; // Atualiza cópia local para contagem
+                        numConfirmedFieldPlayers++;             // Atualiza contagem local
                     } else {
                         console.log(`Admin ${adminName} não pôde ser adicionado (limite de linha).`);
                     }
@@ -286,6 +360,8 @@ async function checkAndPerformAdminAutoAdd() {
                 }
             }
             if (adminsAddedCount > 0) displayErrorMessage(`${adminsAddedCount} administrador(es) adicionado(s).`);
+            else if (adminUids.length > 0) displayErrorMessage("Administradores já estavam na lista ou não havia vagas.");
+            
             await scheduleStateRef.set(currentCycleTimestamp);
         } else {
             console.log("Adição de admins para este ciclo já feita ou não é o momento.");
@@ -321,7 +397,7 @@ confirmPresenceButton.addEventListener('click', async () => {
         displayErrorMessage("Você precisa estar logado para confirmar presença.");
         return;
     }
-     if (!isCurrentUserAdmin && !isListCurrentlyOpen()) {
+    if (!isCurrentUserAdmin && !isListCurrentlyOpen()) {
         displayErrorMessage("A lista de presença não está aberta no momento.");
         return;
     }
@@ -487,7 +563,7 @@ function renderPlayerListItem(player, index, listTypeIdentifier) {
         if (isCurrentUserAdmin && currentUser.uid !== player.id) {
             removeBtn.style.backgroundColor = '#f39c12';
         } else if (isCurrentUserAdmin && currentUser.uid === player.id){
-             // removeBtn.textContent = 'Sair (Admin)'; // Opcional
+             // removeBtn.textContent = 'Sair (Admin)';
         }
         const listTypeForRemove = listTypeIdentifier.startsWith('confirmed') ? 'confirmed' : 'waiting';
         removeBtn.onclick = () => removePlayer(player.id, listTypeForRemove);
@@ -556,7 +632,7 @@ function clearListsUI() {
     if(confirmedGkCountSpan) confirmedGkCountSpan.textContent = '0';
     if(confirmedFpCountSpan) confirmedFpCountSpan.textContent = '0';
     if(waitingCountSpan) waitingCountSpan.textContent = '0';
-    if(listStatusMessageElement) listStatusMessageElement.textContent = ''; // Limpa mensagem de status também
+    if(listStatusMessageElement) listStatusMessageElement.textContent = '';
 }
 
 // --- Funções para o Painel do Admin ---
@@ -632,7 +708,6 @@ async function adminAddPlayerToGame(playerId, playerName, isPlayerGoalkeeper) {
 
         if (confirmedData[playerId] || waitingData[playerId]) {
             displayErrorMessage(`${playerName} já está em uma das listas.`);
-            // Força atualização da lista de admin para garantir que o badge esteja correto.
             if (isCurrentUserAdmin && document.getElementById('tab-admin-panel')?.classList.contains('active')) {
                 filterAndRenderAdminUserList(adminSearchUserInput ? adminSearchUserInput.value : "");
             }
@@ -666,10 +741,6 @@ async function adminAddPlayerToGame(playerId, playerName, isPlayerGoalkeeper) {
                 displayErrorMessage(`Limite de Jogadores de Linha atingido. ${playerName} adicionado à Espera.`);
             }
         }
-        // A atualização da lista de admin para refletir o novo status (badge)
-        // agora é primariamente tratada pelos listeners em `loadLists`.
-        // Uma chamada explícita aqui é redundante se os listeners funcionarem bem.
-
     } catch (error) {
         console.error("Erro do Admin ao adicionar jogador:", error);
         displayErrorMessage("Falha ao adicionar jogador. Verifique o console.");
@@ -723,10 +794,8 @@ function loadAndRenderAllUsersListForAdmin() {
                 .sort((a, b) => b.lastLogin - a.lastLogin);
             
             const adminPanelTab = document.getElementById('tab-admin-panel');
-            if(adminPanelTab && adminPanelTab.classList.contains('active') && adminSearchUserInput) {
-                filterAndRenderAdminUserList(adminSearchUserInput.value);
-            } else if (adminPanelTab && adminPanelTab.classList.contains('active')) {
-                filterAndRenderAdminUserList(""); // Renderiza sem filtro se o campo de busca não existir
+            if(adminPanelTab && adminPanelTab.classList.contains('active')) {
+                filterAndRenderAdminUserList(adminSearchUserInput ? adminSearchUserInput.value : "");
             }
         } else {
             allUsersDataForAdminCache = [];
@@ -741,7 +810,7 @@ function loadAndRenderAllUsersListForAdmin() {
 
 // --- Listeners do Firebase para Atualizações em Tempo Real (Listas de Jogo) ---
 function loadLists() {
-    updateListAvailabilityUI(); // Chamada aqui para garantir que o status seja atualizado ao carregar
+    if(scheduleConfigLoaded) updateListAvailabilityUI(); // Atualiza status da lista baseado nas configs
 
     if (confirmedPlayersRef) {
         confirmedPlayersRef.on('value', snapshot => {
@@ -781,3 +850,6 @@ if (adminSearchUserInput) {
         }
     });
 }
+
+// --- Chamada Inicial para carregar configurações de horário ---
+fetchScheduleSettings();

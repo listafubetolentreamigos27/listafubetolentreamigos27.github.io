@@ -201,8 +201,9 @@ button:hover {
     align-items: center;
 }
 #is-goalkeeper {
-    margin-left: 5px;
-    transform: scale(1.1); /* Checkbox um pouco maior */
+    margin-left: 10px;
+    transform: scale(1.4); /* Checkbox um pouco maior */
+    vertical-align: middle;
 }
 #confirm-presence-button {
     padding: 10px 20px; /* Padding generoso para toque */
@@ -369,7 +370,7 @@ button:hover {
 }
 .admin-user-item-actions .admin-add-gk-checkbox {
     margin-right: 8px; /* Espaço depois do checkbox */
-    transform: scale(1.1);
+    transform: scale(1.4);
     vertical-align: middle;
 }
 .admin-user-item-actions .admin-add-button {
@@ -487,10 +488,10 @@ button:hover {
     .tab-content .controls {
         flex-direction: column; /* Empilha "Sou goleiro?" e botão */
         align-items: stretch; /* Estica os itens para ocupar a largura */
-        gap: 10px;
+        gap: 5px;
     }
     .tab-content .controls label {
-        justify-content: space-between; /* Espalha checkbox do texto "Sou goleiro?" */
+        justify-content: center; /* Espalha checkbox do texto "Sou goleiro?" */
     }
     #confirm-presence-button {
         width: 100%;
@@ -501,21 +502,10 @@ button:hover {
     .list-section h2 {
         font-size: 1.15em;
     }
-    .list-section ul li, .admin-user-item {
-        padding: 8px 10px;
-        flex-direction: column; /* Empilha informações do jogador e botão/ações */
-        align-items: flex-start; /* Alinha tudo à esquerda */
-        gap: 8px; /* Espaço entre info e botão quando empilhado */
-    }
     .player-text-info {
         margin-right: 0; /* Remove margem quando empilhado */
         margin-bottom: 5px; /* Espaço abaixo do texto antes do botão, se empilhado */
         width: 100%; /* Para que a quebra de palavra funcione bem */
-    }
-    .list-section li .remove-button {
-        width: 100%; /* Botão de sair ocupa largura total */
-        margin-left: 0; /* Remove margem quando empilhado */
-        padding: 8px;
     }
 
 
@@ -537,22 +527,19 @@ button:hover {
     }
     .admin-user-item-actions {
         width: 100%; /* Ações ocupam largura total */
-        gap: 80px;
-    }
-    .admin-user-item-actions label {
-        width: 100%; /* Label ocupa toda a largura */
-        display: flex;
-        justify-content: space-between; /* Espalha texto do checkbox */
-        align-items: center;
+        gap: 10px;
     }
     .admin-user-item-actions .admin-add-gk-checkbox {
         margin-left: 0;
         margin-right: 0; /* Checkbox alinhado pela label */
     }
     .admin-user-item-actions .admin-add-button {
-        width: 100%;
+        width: 40%;
         margin-left: 0;
-        padding: 10px;
+        padding: 10px; 
+        margin-left: auto; /* Garante que o botão fique à direita mesmo se o texto for curto */
+        white-space: nowrap;
+        flex-shrink: 0; /* Não encolhe o botão */
     }
 }
 
