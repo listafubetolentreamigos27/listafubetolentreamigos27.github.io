@@ -198,7 +198,6 @@ button:hover {
 }
 .tab-content .controls label {
     font-size: 0.95em;
-    display: flex; /* Para alinhar checkbox e texto */
     align-items: center;
 }
 #is-goalkeeper {
@@ -537,10 +536,8 @@ button:hover {
         width: 100%;
     }
     .admin-user-item-actions {
-        flex-direction: column; /* Empilha label/checkbox e botão de adicionar */
-        align-items: flex-start;
         width: 100%; /* Ações ocupam largura total */
-        gap: 8px;
+        gap: 80px;
     }
     .admin-user-item-actions label {
         width: 100%; /* Label ocupa toda a largura */
