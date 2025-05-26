@@ -64,7 +64,8 @@ const adminSearchUserInput = document.getElementById('admin-search-user');
 let currentUser = null;
 let isCurrentUserAdmin = false;
 let allUsersDataForAdminCache = [];
-
+let listStatusUpdateInterval = null; // Para controlar nosso temporizador
+const LIST_STATUS_UPDATE_INTERVAL_MS = 30 * 1000; // Verificar a cada 30 segundos
 // --- Lógica de Horário e Fuso Horário de Brasília ---
 function getCurrentBrasiliaDateTimeParts() {
     const nowUtc = new Date();
@@ -174,21 +175,41 @@ function fetchScheduleSettings() {
         const settings = snapshot.val();
         if (settings && typeof settings.openDay === 'number' && typeof settings.openHour === 'number') {
             currentScheduleConfig = settings;
-            console.log("Configurações de horário carregadas/atualizadas:", currentScheduleConfig);
+            console.log("Configurações de horário carregadas/atualizadas do Firebase:", currentScheduleConfig);
         } else {
             console.warn("Config. de horário não encontradas ou inválidas no Firebase. Usando padrões.");
-            // currentScheduleConfig já tem os valores padrão
+            // currentScheduleConfig já tem os valores padrão definidos no script
         }
         scheduleConfigLoaded = true;
 
-        updateListAvailabilityUI(); // Atualiza a UI com base nas configs carregadas/padrão
-        if (currentUser) {
+        // Chamada inicial para atualizar a UI com as configs carregadas/padrão
+        updateListAvailabilityUI();
+
+        if (currentUser && isCurrentUserAdmin) {
             checkAndPerformAdminAutoAdd(); // Verifica se precisa adicionar admins
         }
+
+        // Inicia ou reinicia o intervalo para atualizações automáticas de status da lista
+        if (listStatusUpdateInterval) {
+            clearInterval(listStatusUpdateInterval); // Limpa o intervalo anterior, se houver
+        }
+        listStatusUpdateInterval = setInterval(() => {
+            // console.log("Intervalo: Verificando status da lista..."); // Para depuração
+            updateListAvailabilityUI(); // Chama a função que reavalia e atualiza a UI
+        }, LIST_STATUS_UPDATE_INTERVAL_MS);
+
     }, (error) => {
-        console.error("Erro ao buscar config. de horário:", error);
-        // scheduleConfigLoaded = true; // Permite que a app continue com defaults
-        updateListAvailabilityUI(); // Atualiza UI mesmo com erro (mostrará padrão)
+        console.error("Erro ao buscar configurações de horário:", error);
+        scheduleConfigLoaded = true; // Marca como carregado para não bloquear, usará defaults
+        updateListAvailabilityUI(); // Atualiza UI mesmo com erro (usando defaults)
+
+        // Mesmo com erro, podemos iniciar o intervalo caso os defaults permitam abrir depois
+        if (listStatusUpdateInterval) {
+            clearInterval(listStatusUpdateInterval);
+        }
+        listStatusUpdateInterval = setInterval(() => {
+            updateListAvailabilityUI();
+        }, LIST_STATUS_UPDATE_INTERVAL_MS);
     });
 }
 
@@ -314,7 +335,6 @@ async function checkAndPerformAdminAutoAdd() {
 
         if (currentCycleTimestamp > lastCycleTimestamp) {
             console.log("Novo ciclo, adicionando admins...");
-            displayErrorMessage("Adicionando administradores à lista...");
 
             const adminsSnapshot = await database.ref('admins').once('value');
             const adminUidsMap = adminsSnapshot.val();
@@ -359,8 +379,9 @@ async function checkAndPerformAdminAutoAdd() {
                     console.log(`Admin ${allLogins[adminUid]?.name || adminUid.substring(0, 6)} já está na lista.`);
                 }
             }
-            if (adminsAddedCount > 0) displayErrorMessage(`${adminsAddedCount} administrador(es) adicionado(s).`);
-            else if (adminUids.length > 0) displayErrorMessage("Administradores já estavam na lista ou não havia vagas.");
+
+            if (adminsAddedCount > 0) console.log(`${adminsAddedCount} administrador(es) adicionado(s).`);
+            else if (adminUids.length > 0) console.log("Administradores já estavam na lista ou não havia vagas.");
 
             await scheduleStateRef.set(currentCycleTimestamp);
         } else {
@@ -368,7 +389,6 @@ async function checkAndPerformAdminAutoAdd() {
         }
     } catch (error) {
         console.error("Erro na adição automática de admins:", error);
-        displayErrorMessage("Erro ao adicionar admins automaticamente.");
     }
 }
 
