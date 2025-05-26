@@ -133,7 +133,7 @@ function updateListAvailabilityUI() {
         return;
     }
     if (!scheduleConfigLoaded && !currentUser) { // Se deslogado e config não carregou
-        if (listStatusMessageElement) listStatusMessageElement.textContent = "Faça login para ver o status da lista.";
+        if (listStatusMessageElement) listStatusMessageElement.textContent = "Faça login para ver o status da lista.";     
         if (confirmPresenceButton) confirmPresenceButton.disabled = true;
         return;
     }
@@ -156,14 +156,6 @@ function updateListAvailabilityUI() {
 
             listStatusMessageElement.textContent = `Lista FECHADA. Abre ${openTimeStr}, fecha ${closeTimeStr}.`;
             listStatusMessageElement.className = 'list-status closed';
-        }
-    }
-
-    if (confirmPresenceButton) {
-        if (isCurrentUserAdmin) {
-            confirmPresenceButton.disabled = false;
-        } else {
-            confirmPresenceButton.disabled = !isOpen;
         }
     }
 }
