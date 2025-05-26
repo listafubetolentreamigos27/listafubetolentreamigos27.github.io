@@ -392,7 +392,7 @@ function displayErrorMessage(message) {
     }
 }
 
-confirmPresenceButton.addEventListener('click', () => { // Removido async daqui, pois a transação tem seu próprio callback
+confirmPresenceButton.addEventListener('click', () => {
     if (!currentUser) {
         displayErrorMessage("Você precisa estar logado para confirmar presença.");
         return;
@@ -402,38 +402,28 @@ confirmPresenceButton.addEventListener('click', () => { // Removido async daqui,
         return;
     }
 
-    const isGoalkeeperForTransaction = isGoalkeeperCheckbox.checked; // Captura antes da transação
+    const isGoalkeeperForTransaction = isGoalkeeperCheckbox.checked;
     const playerIdForTransaction = currentUser.uid;
     const playerNameForTransaction = currentUser.displayName || "Jogador Anônimo";
 
-    // Referência ao nó pai que contém ambas as listas para a transação
     const listaFutebolRef = database.ref('listaFutebol');
-
-    displayErrorMessage("Processando sua confirmação..."); // Feedback inicial
+    displayErrorMessage("Processando sua confirmação...");
 
     listaFutebolRef.transaction((currentListaFutebolData) => {
-        // Se currentListaFutebolData é null, significa que o nó /listaFutebol não existe.
-        // Devemos inicializá-lo ou tratar como um estado inválido.
-        // Para este caso, vamos assumir que ele deve existir com subnós.
         if (currentListaFutebolData === null) {
-            currentListaFutebolData = { // Inicializa a estrutura se não existir
+            currentListaFutebolData = {
                 jogadoresConfirmados: {},
                 listaEspera: {}
             };
         }
-
-        // Garante que os subnós existam, usando objetos vazios como padrão
         const confirmedPlayers = currentListaFutebolData.jogadoresConfirmados || {};
         const waitingPlayers = currentListaFutebolData.listaEspera || {};
 
-        // 1. VERIFICAÇÃO INTERNA: O usuário já está em alguma lista?
-        // Esta verificação é crucial DENTRO da transação para atomicidade.
         if (confirmedPlayers[playerIdForTransaction] || waitingPlayers[playerIdForTransaction]) {
-            console.log("Transação: Usuário já está na lista ou espera. Abortando.");
-            return undefined; // Aborta a transação, não faz nenhuma alteração.
+            console.log("Transação: Usuário já está na lista. Abortando.");
+            return undefined; // Aborta a transação
         }
 
-        // 2. Contar jogadores atuais por tipo na lista de confirmados
         const confirmedPlayersArray = Object.values(confirmedPlayers);
         const numConfirmedGoalkeepers = confirmedPlayersArray.filter(p => p.isGoalkeeper).length;
         const numConfirmedFieldPlayers = confirmedPlayersArray.filter(p => !p.isGoalkeeper).length;
@@ -441,41 +431,37 @@ confirmPresenceButton.addEventListener('click', () => { // Removido async daqui,
         const playerData = {
             name: playerNameForTransaction,
             isGoalkeeper: isGoalkeeperForTransaction,
-            timestamp: firebase.database.ServerValue.TIMESTAMP // O Firebase resolve isso no servidor
+            timestamp: firebase.database.ServerValue.TIMESTAMP
         };
 
-        let actionTaken = null; // Para feedback posterior: 'confirmed', 'waiting', null
+        let madeChange = false; // Para rastrear se uma alteração válida foi feita
 
-        // 3. Lógica de adicionar à lista principal ou de espera
         if (isGoalkeeperForTransaction) {
             if (numConfirmedGoalkeepers < MAX_GOALKEEPERS) {
                 confirmedPlayers[playerIdForTransaction] = playerData;
-                actionTaken = 'confirmed_gk';
+                madeChange = true;
             } else {
                 waitingPlayers[playerIdForTransaction] = playerData;
-                actionTaken = 'waiting_gk';
+                madeChange = true;
             }
         } else { // Jogador de linha
             if (numConfirmedFieldPlayers < MAX_FIELD_PLAYERS) {
                 confirmedPlayers[playerIdForTransaction] = playerData;
-                actionTaken = 'confirmed_fp';
+                madeChange = true;
             } else {
                 waitingPlayers[playerIdForTransaction] = playerData;
-                actionTaken = 'waiting_fp';
+                madeChange = true;
             }
         }
 
-        // Se alguma ação foi tomada (jogador adicionado a alguma lista)
-        if (actionTaken) {
+        if (madeChange) {
             currentListaFutebolData.jogadoresConfirmados = confirmedPlayers;
             currentListaFutebolData.listaEspera = waitingPlayers;
-            // Adiciona uma "flag" temporária para o callback saber o que aconteceu (opcional)
-            currentListaFutebolData._transaction_action = actionTaken;
-            currentListaFutebolData._transaction_playerName = playerNameForTransaction;
-            return currentListaFutebolData; // Retorna os dados modificados para serem salvos
+            // NÃO adicione flags _transaction_action ou _transaction_playerName aqui
+            return currentListaFutebolData;
         } else {
-            // Nenhuma ação lógica foi tomada (ex: já estava na lista e foi pego pela verificação interna)
-            return undefined; // Aborta a transação
+            // Se nenhuma mudança lógica foi feita (embora o primeiro check de "já na lista" devesse pegar isso)
+            return undefined; // Aborta
         }
 
     }, (error, committed, snapshot) => {
@@ -483,44 +469,33 @@ confirmPresenceButton.addEventListener('click', () => { // Removido async daqui,
             console.error("Falha na transação:", error);
             displayErrorMessage("Erro ao processar sua confirmação. Tente novamente.");
         } else if (!committed) {
-            // A transação foi abortada pela nossa lógica (função retornou undefined)
-            // Isso geralmente significa que o usuário já estava na lista.
-            console.log("Transação não efetivada (provavelmente usuário já na lista ou condição não atendida).");
-            // Verificar novamente no cliente para dar uma mensagem precisa, pois o snapshot aqui
-            // reflete o estado *antes* da tentativa de transação se ela foi abortada sem erro.
-            // Ou, se a _transaction_action não estiver presente, mas o jogador estiver, ele já estava lá.
-            // No entanto, a UI será atualizada pelos listeners normais, então o estado visual se corrigirá.
-            // Uma mensagem genérica pode ser suficiente aqui, ou uma mais específica se pudermos inferir.
+            console.log("Transação não efetivada.");
+            // Verifica novamente o estado atual para dar uma mensagem mais precisa
             database.ref(`listaFutebol/jogadoresConfirmados/${playerIdForTransaction}`).once('value', sConfirm => {
                 database.ref(`listaFutebol/listaEspera/${playerIdForTransaction}`).once('value', sWait => {
                     if (sConfirm.exists() || sWait.exists()) {
-                        displayErrorMessage("Você já está na lista ou na espera.");
+                        displayErrorMessage("Você já está na lista ou na espera (verificado no servidor).");
                     } else {
-                        displayErrorMessage("Não foi possível confirmar. A lista pode ter enchido ou houve um conflito.");
+                        displayErrorMessage("Não foi possível confirmar. Vagas podem ter sido preenchidas ou houve um conflito. Tente novamente.");
                     }
                 });
             });
         } else {
             // Transação bem-sucedida!
             console.log("Confirmação processada com sucesso pelo servidor.");
-            // A UI será atualizada automaticamente pelos listeners .on('value') que já existem.
-            // Podemos dar um feedback mais específico baseado no snapshot.
-            const dataCommitted = snapshot.val();
-            const action = dataCommitted._transaction_action; // Pega a flag que adicionamos
-            const name = dataCommitted._transaction_playerName;
+            const dataCommitted = snapshot.val(); // Este é o novo estado de /listaFutebol
 
-            if (action) { // Se a nossa flag existir
-                if (action.startsWith('confirmed')) {
-                    displayErrorMessage(`${name}, sua presença foi confirmada!`);
-                } else if (action.startsWith('waiting')) {
-                    displayErrorMessage(`${name}, você foi adicionado à lista de espera.`);
-                }
-                // Limpa as flags temporárias (opcional, mas bom para higiene do DB)
-                // No entanto, isso requer outra escrita. É mais simples não adicioná-las ou ignorá-las após leitura.
-                // Para este exemplo, vamos deixá-las, pois são sobrescritas ou removidas com o jogador.
+            // Inferir o que aconteceu baseado no snapshot final
+            if (dataCommitted && dataCommitted.jogadoresConfirmados && dataCommitted.jogadoresConfirmados[playerIdForTransaction]) {
+                const playerCommitted = dataCommitted.jogadoresConfirmados[playerIdForTransaction];
+                displayErrorMessage(`${playerCommitted.name}, presença ${playerCommitted.isGoalkeeper ? 'como goleiro(a)' : ''} confirmada!`);
+            } else if (dataCommitted && dataCommitted.listaEspera && dataCommitted.listaEspera[playerIdForTransaction]) {
+                const playerCommitted = dataCommitted.listaEspera[playerIdForTransaction];
+                displayErrorMessage(`${playerCommitted.name}, você foi adicionado(a) à lista de espera.`);
             } else {
-                displayErrorMessage("Sua solicitação foi processada!"); // Mensagem genérica de sucesso
+                displayErrorMessage("Sua solicitação foi processada com sucesso!"); // Fallback
             }
+            // A UI será atualizada pelos listeners .on('value') existentes.
         }
     });
 });
