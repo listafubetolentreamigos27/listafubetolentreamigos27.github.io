@@ -65,7 +65,7 @@ let currentUser = null;
 let isCurrentUserAdmin = false;
 let allUsersDataForAdminCache = [];
 let listStatusUpdateInterval = null; // Para controlar nosso temporizador
-const LIST_STATUS_UPDATE_INTERVAL_MS = 30 * 1000; // Verificar a cada 30 segundos
+const LIST_STATUS_UPDATE_INTERVAL_MS = 20 * 1000; // Verificar a cada 30 segundos
 // --- Lógica de Horário e Fuso Horário de Brasília ---
 function getCurrentBrasiliaDateTimeParts() {
     const nowUtc = new Date();
@@ -185,7 +185,7 @@ function fetchScheduleSettings() {
         // Chamada inicial para atualizar a UI com as configs carregadas/padrão
         updateListAvailabilityUI();
 
-        if (currentUser && isCurrentUserAdmin) {
+        if (currentUser) {
             checkAndPerformAdminAutoAdd(); // Verifica se precisa adicionar admins
         }
 
