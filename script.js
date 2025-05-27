@@ -255,22 +255,41 @@ function fetchScheduleSettings() {
 
 
 // --- Lógica de Autenticação ---
-auth.onAuthStateChanged(user => {
-    currentUser = user;
+auth.onAuthStateChanged(async user => { // Tornamos a função async para usar await
     if (user) {
-        userInfo.textContent = `Logado como: ${user.displayName || user.email}`;
-        loginButton.style.display = 'none';
-        logoutButton.style.display = 'inline-block';
+        try {
+            // 1. TENTA RECARREGAR O PERFIL DO USUÁRIO DO FIREBASE
+            await user.reload();
+            // 2. APÓS O RELOAD, PEGUE O OBJETO DE USUÁRIO ATUALIZADO
+            //    (auth.currentUser pode ter sido atualizado pelo reload)
+            currentUser = auth.currentUser;
+            console.log("Perfil do usuário recarregado. Novo displayName:", currentUser.displayName);
+        } catch (error) {
+            console.error("Erro ao recarregar o perfil do usuário:", error);
+            // Se o reload falhar, usa o objeto 'user' original que foi passado para a função
+            currentUser = user;
+        }
+
+        // --- O RESTANTE DA SUA LÓGICA onAuthStateChanged CONTINUA AQUI, USANDO 'currentUser' ---
+        // Exemplo:
+        if (userInfo) userInfo.textContent = `Logado como: ${currentUser.displayName || currentUser.email}`;
+        if (loginButton) loginButton.style.display = 'none';
+        if (logoutButton) logoutButton.style.display = 'inline-block';
         if (tabsContainer) tabsContainer.style.display = 'block';
 
-        const userLoginRef = database.ref(`allUsersLogins/${user.uid}`);
+        // Salvar/Atualizar informações de login do usuário com o nome potencialmente atualizado
+        const userLoginRef = database.ref(`allUsersLogins/${currentUser.uid}`);
         userLoginRef.set({
-            name: user.displayName || "Usuário Anônimo",
+            name: currentUser.displayName || "Usuário Anônimo", // Usa o displayName de currentUser
             lastLogin: firebase.database.ServerValue.TIMESTAMP
-        }).catch(error => console.error("Erro ao salvar login:", error));
+        }).catch(error => {
+            console.error("Erro ao salvar informações de login do usuário:", error);
+        });
 
-        const adminStatusRef = database.ref(`admins/${user.uid}`);
-        adminStatusRef.once('value').then(snapshot => {
+        // Verificar status de admin
+        const adminStatusRef = database.ref(`admins/${currentUser.uid}`);
+        try {
+            const snapshot = await adminStatusRef.once('value'); // Usando await aqui também
             isCurrentUserAdmin = snapshot.exists() && snapshot.val() === true;
             console.log("Status de Admin:", isCurrentUserAdmin);
 
@@ -281,6 +300,7 @@ auth.onAuthStateChanged(user => {
             if (isCurrentUserAdmin) {
                 loadAndRenderAllUsersListForAdmin();
                 // checkAndPerformAdminAutoAdd() será chamado após fetchScheduleSettings ter sucesso
+                // ou se as configs já estiverem carregadas
             } else {
                 const adminPanelTab = document.getElementById('tab-admin-panel');
                 if (adminPanelTab && adminPanelTab.classList.contains('active')) {
@@ -290,33 +310,38 @@ auth.onAuthStateChanged(user => {
                 if (adminAllUsersListElement) adminAllUsersListElement.innerHTML = '';
                 allUsersDataForAdminCache = [];
             }
-            loadLists();
-            // updateListAvailabilityUI() será chamado quando scheduleConfigLoaded for true
+
+            loadLists(); // Carrega listas de jogo
+
+            // updateListAvailabilityUI() é chamado quando as configs de horário carregam ou mudam,
+            // e também aqui para garantir que a UI reflita o estado de login.
             if (scheduleConfigLoaded) {
                 updateListAvailabilityUI();
-                if (isCurrentUserAdmin) checkAndPerformAdminAutoAdd(); // Chama aqui também se config já carregou
+                if (isCurrentUserAdmin) { // checkAndPerformAdminAutoAdd depende de scheduleConfigLoaded E isListCurrentlyOpen
+                    checkAndPerformAdminAutoAdd();
+                }
             }
 
-        }).catch(error => {
+        } catch (error) {
             console.error("Erro ao verificar admin:", error);
             isCurrentUserAdmin = false;
             if (adminTabButton) adminTabButton.style.display = 'none';
             loadLists();
             if (scheduleConfigLoaded) updateListAvailabilityUI();
-        });
-    } else {
+        }
+
+    } else { // Usuário deslogado
         isCurrentUserAdmin = false;
         currentUser = null;
-        userInfo.textContent = 'Por favor, faça login para participar.';
-        loginButton.style.display = 'inline-block';
-        logoutButton.style.display = 'none';
+        if (userInfo) userInfo.textContent = 'Por favor, faça login para participar.';
+        if (loginButton) loginButton.style.display = 'inline-block';
+        if (logoutButton) logoutButton.style.display = 'none';
         if (tabsContainer) tabsContainer.style.display = 'none';
         if (adminTabButton) adminTabButton.style.display = 'none';
 
         if (listStatusMessageElement) {
-            // Se scheduleConfigLoaded, mostra msg de fechado, senão limpa.
-            if (scheduleConfigLoaded) updateListAvailabilityUI();
-            else listStatusMessageElement.textContent = '';
+            if (scheduleConfigLoaded) updateListAvailabilityUI(); // Mostra status de fechado
+            else listStatusMessageElement.textContent = ''; // Limpa se configs não carregadas
         }
         if (confirmPresenceButton) confirmPresenceButton.disabled = true;
 
