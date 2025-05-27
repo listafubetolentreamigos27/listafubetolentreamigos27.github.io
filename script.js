@@ -60,6 +60,15 @@ const adminTabButton = document.getElementById('admin-tab-button');
 const adminAllUsersListElement = document.getElementById('admin-all-users-list');
 const adminSearchUserInput = document.getElementById('admin-search-user');
 
+const adminOpenDaySelect = document.getElementById('admin-open-day');
+const adminOpenHourInput = document.getElementById('admin-open-hour');
+const adminOpenMinuteInput = document.getElementById('admin-open-minute');
+const adminCloseDaySelect = document.getElementById('admin-close-day');
+const adminCloseHourInput = document.getElementById('admin-close-hour');
+const adminCloseMinuteInput = document.getElementById('admin-close-minute');
+const saveScheduleButton = document.getElementById('save-schedule-button');
+const scheduleSaveStatusElement = document.getElementById('schedule-save-status');
+
 // --- Estado do Usuário e Admin ---
 let currentUser = null;
 let isCurrentUserAdmin = false;
@@ -133,7 +142,7 @@ function updateListAvailabilityUI() {
         return;
     }
     if (!scheduleConfigLoaded && !currentUser) { // Se deslogado e config não carregou
-        if (listStatusMessageElement) listStatusMessageElement.textContent = "Faça login para ver o status da lista.";     
+        if (listStatusMessageElement) listStatusMessageElement.textContent = "Faça login para ver o status da lista.";
         if (confirmPresenceButton) confirmPresenceButton.disabled = true;
         return;
     }
@@ -161,49 +170,89 @@ function updateListAvailabilityUI() {
 }
 
 // --- Carregar Configurações de Horário do Firebase ---
+//function fetchScheduleSettings() {
+//    const scheduleSettingsRef = database.ref('scheduleSettings');
+//    scheduleSettingsRef.on('value', (snapshot) => {
+//        const settings = snapshot.val();
+//        if (settings && typeof settings.openDay === 'number' && typeof settings.openHour === 'number') {
+//            currentScheduleConfig = settings;
+//            console.log("Configurações de horário carregadas/atualizadas do Firebase:", currentScheduleConfig);
+//        } else {
+//            console.warn("Config. de horário não encontradas ou inválidas no Firebase. Usando padrões.");
+//            // currentScheduleConfig já tem os valores padrão definidos no script
+//        }
+//        scheduleConfigLoaded = true;
+
+//        // Chamada inicial para atualizar a UI com as configs carregadas/padrão
+//        updateListAvailabilityUI();
+
+//        if (currentUser) {
+//            checkAndPerformAdminAutoAdd(); // Verifica se precisa adicionar admins
+//        }
+
+//        // Inicia ou reinicia o intervalo para atualizações automáticas de status da lista
+//        if (listStatusUpdateInterval) {
+//            clearInterval(listStatusUpdateInterval); // Limpa o intervalo anterior, se houver
+//        }
+//        listStatusUpdateInterval = setInterval(() => {
+//            // console.log("Intervalo: Verificando status da lista..."); // Para depuração
+//            updateListAvailabilityUI(); // Chama a função que reavalia e atualiza a UI
+//        }, LIST_STATUS_UPDATE_INTERVAL_MS);
+
+//    }, (error) => {
+//        console.error("Erro ao buscar configurações de horário:", error);
+//        scheduleConfigLoaded = true; // Marca como carregado para não bloquear, usará defaults
+//        updateListAvailabilityUI(); // Atualiza UI mesmo com erro (usando defaults)
+
+//        // Mesmo com erro, podemos iniciar o intervalo caso os defaults permitam abrir depois
+//        if (listStatusUpdateInterval) {
+//            clearInterval(listStatusUpdateInterval);
+//        }
+//        listStatusUpdateInterval = setInterval(() => {
+//            updateListAvailabilityUI();
+//        }, LIST_STATUS_UPDATE_INTERVAL_MS);
+//    });
+//}
+
 function fetchScheduleSettings() {
     const scheduleSettingsRef = database.ref('scheduleSettings');
     scheduleSettingsRef.on('value', (snapshot) => {
         const settings = snapshot.val();
         if (settings && typeof settings.openDay === 'number' && typeof settings.openHour === 'number') {
             currentScheduleConfig = settings;
-            console.log("Configurações de horário carregadas/atualizadas do Firebase:", currentScheduleConfig);
+            console.log("Configurações de horário carregadas/atualizadas:", currentScheduleConfig);
         } else {
-            console.warn("Config. de horário não encontradas ou inválidas no Firebase. Usando padrões.");
-            // currentScheduleConfig já tem os valores padrão definidos no script
+            console.warn("Config. de horário não encontradas ou inválidas. Usando padrões.");
+            // currentScheduleConfig já tem os valores padrão
         }
         scheduleConfigLoaded = true;
 
-        // Chamada inicial para atualizar a UI com as configs carregadas/padrão
         updateListAvailabilityUI();
 
         if (currentUser) {
-            checkAndPerformAdminAutoAdd(); // Verifica se precisa adicionar admins
+            populateScheduleForm(currentScheduleConfig); // Popula o formulário quando as configs carregam/mudam
+            checkAndPerformAdminAutoAdd();
         }
-
-        // Inicia ou reinicia o intervalo para atualizações automáticas de status da lista
-        if (listStatusUpdateInterval) {
-            clearInterval(listStatusUpdateInterval); // Limpa o intervalo anterior, se houver
-        }
+        // ... (resto da lógica de iniciar o intervalo de atualização)
+        if (listStatusUpdateInterval) clearInterval(listStatusUpdateInterval);
         listStatusUpdateInterval = setInterval(() => {
-            // console.log("Intervalo: Verificando status da lista..."); // Para depuração
-            updateListAvailabilityUI(); // Chama a função que reavalia e atualiza a UI
+            updateListAvailabilityUI();
         }, LIST_STATUS_UPDATE_INTERVAL_MS);
 
     }, (error) => {
-        console.error("Erro ao buscar configurações de horário:", error);
-        scheduleConfigLoaded = true; // Marca como carregado para não bloquear, usará defaults
-        updateListAvailabilityUI(); // Atualiza UI mesmo com erro (usando defaults)
-
-        // Mesmo com erro, podemos iniciar o intervalo caso os defaults permitam abrir depois
-        if (listStatusUpdateInterval) {
-            clearInterval(listStatusUpdateInterval);
+        console.error("Erro ao buscar config. de horário:", error);
+        scheduleConfigLoaded = true;
+        updateListAvailabilityUI();
+        if (currentUser && isCurrentUserAdmin) { // Popula com defaults mesmo em erro
+            populateScheduleForm(currentScheduleConfig);
         }
+        if (listStatusUpdateInterval) clearInterval(listStatusUpdateInterval);
         listStatusUpdateInterval = setInterval(() => {
             updateListAvailabilityUI();
         }, LIST_STATUS_UPDATE_INTERVAL_MS);
     });
 }
+
 
 // --- Lógica de Autenticação ---
 auth.onAuthStateChanged(user => {
@@ -293,9 +342,28 @@ logoutButton.addEventListener('click', () => {
 });
 
 // --- Lógica das Abas ---
+//if (tabButtons && tabContents) {
+//    tabButtons.forEach(button => {
+//        button.addEventListener('click', () => {
+//            tabButtons.forEach(btn => btn.classList.remove('active'));
+//            tabContents.forEach(content => content.classList.remove('active'));
+//            button.classList.add('active');
+//            const targetTabId = button.getAttribute('data-tab');
+//            const targetContent = document.getElementById(targetTabId);
+//            if (targetContent) {
+//                targetContent.classList.add('active');
+//            }
+//            if (targetTabId === 'tab-admin-panel' && isCurrentUserAdmin && adminSearchUserInput) {
+//                filterAndRenderAdminUserList(adminSearchUserInput.value);
+//            }
+//        });
+//    });
+//}
+
 if (tabButtons && tabContents) {
     tabButtons.forEach(button => {
         button.addEventListener('click', () => {
+            // ... (código existente para desativar/ativar abas) ...
             tabButtons.forEach(btn => btn.classList.remove('active'));
             tabContents.forEach(content => content.classList.remove('active'));
             button.classList.add('active');
@@ -304,8 +372,12 @@ if (tabButtons && tabContents) {
             if (targetContent) {
                 targetContent.classList.add('active');
             }
-            if (targetTabId === 'tab-admin-panel' && isCurrentUserAdmin && adminSearchUserInput) {
-                filterAndRenderAdminUserList(adminSearchUserInput.value);
+
+            if (targetTabId === 'tab-admin-panel' && isCurrentUserAdmin) {
+                if (scheduleConfigLoaded) { // Se as configs já carregaram
+                    populateScheduleForm(currentScheduleConfig); // Popula o formulário
+                }
+                if (adminSearchUserInput) filterAndRenderAdminUserList(adminSearchUserInput.value);
             }
         });
     });
@@ -873,6 +945,18 @@ function loadAndRenderAllUsersListForAdmin() {
     });
 }
 
+// NOVA FUNÇÃO PARA POPULAR O FORMULÁRIO DE HORÁRIOS
+function populateScheduleForm(scheduleData) {
+    if (!isCurrentUserAdmin) return; // Segurança extra, mas a aba já controla isso
+
+    if (adminOpenDaySelect) adminOpenDaySelect.value = String(scheduleData.openDay);
+    if (adminOpenHourInput) adminOpenHourInput.value = String(scheduleData.openHour);
+    if (adminOpenMinuteInput) adminOpenMinuteInput.value = String(scheduleData.openMinute);
+    if (adminCloseDaySelect) adminCloseDaySelect.value = String(scheduleData.closeDay);
+    if (adminCloseHourInput) adminCloseHourInput.value = String(scheduleData.closeHour);
+    if (adminCloseMinuteInput) adminCloseMinuteInput.value = String(scheduleData.closeMinute);
+}
+
 // --- Listeners do Firebase para Atualizações em Tempo Real (Listas de Jogo) ---
 function loadLists() {
     if (scheduleConfigLoaded) updateListAvailabilityUI(); // Atualiza status da lista baseado nas configs
@@ -906,6 +990,80 @@ function loadLists() {
         });
     }
 }
+
+if (saveScheduleButton) {
+    saveScheduleButton.addEventListener('click', async () => {
+        if (!isCurrentUserAdmin) {
+            displayErrorMessage("Apenas administradores podem salvar horários.");
+            return;
+        }
+
+        // Valida e coleta os dados do formulário
+        const newSchedule = {
+            openDay: parseInt(adminOpenDaySelect.value),
+            openHour: parseInt(adminOpenHourInput.value),
+            openMinute: parseInt(adminOpenMinuteInput.value),
+            closeDay: parseInt(adminCloseDaySelect.value),
+            closeHour: parseInt(adminCloseHourInput.value),
+            closeMinute: parseInt(adminCloseMinuteInput.value)
+        };
+
+        // Validação básica dos números
+        let isValid = true;
+        const fieldsToValidate = [
+            { value: newSchedule.openHour, min: 0, max: 23, name: "Hora Abertura" },
+            { value: newSchedule.openMinute, min: 0, max: 59, name: "Minuto Abertura" },
+            { value: newSchedule.closeHour, min: 0, max: 23, name: "Hora Fechamento" },
+            { value: newSchedule.closeMinute, min: 0, max: 59, name: "Minuto Fechamento" }
+        ];
+
+        for (const field of fieldsToValidate) {
+            if (isNaN(field.value) || field.value < field.min || field.value > field.max) {
+                isValid = false;
+                if (scheduleSaveStatusElement) {
+                    scheduleSaveStatusElement.textContent = `Valor inválido para ${field.name}. Use o intervalo ${field.min}-${field.max}.`;
+                    scheduleSaveStatusElement.className = 'status-feedback error visible';
+                }
+                break;
+            }
+        }
+        // Validação dos dias (selects já são limitados, mas isNaN checa se algo deu muito errado)
+        if (isNaN(newSchedule.openDay) || isNaN(newSchedule.closeDay)) isValid = false;
+
+
+        if (!isValid) {
+            setTimeout(() => { if (scheduleSaveStatusElement) { scheduleSaveStatusElement.textContent = ''; scheduleSaveStatusElement.classList.remove('visible', 'error'); } }, 4000);
+            return;
+        }
+
+        // Lógica de validação mais complexa (opcional):
+        // Ex: Dia/hora de fechamento deve ser após dia/hora de abertura (considerando a semana)
+        // Por simplicidade, não incluído aqui, mas seria uma boa adição.
+
+        if (scheduleSaveStatusElement) {
+            scheduleSaveStatusElement.textContent = "Salvando...";
+            scheduleSaveStatusElement.className = 'status-feedback neutral visible';
+        }
+
+        try {
+            await database.ref('scheduleSettings').set(newSchedule);
+            if (scheduleSaveStatusElement) {
+                scheduleSaveStatusElement.textContent = "Horários salvos com sucesso!";
+                scheduleSaveStatusElement.className = 'status-feedback success visible';
+            }
+            // O listener em fetchScheduleSettings já vai atualizar currentScheduleConfig
+            // e repopular o formulário, além de chamar updateListAvailabilityUI.
+        } catch (error) {
+            console.error("Erro ao salvar horários:", error);
+            if (scheduleSaveStatusElement) {
+                scheduleSaveStatusElement.textContent = "Erro ao salvar. Tente novamente.";
+                scheduleSaveStatusElement.className = 'status-feedback error visible';
+            }
+        }
+        setTimeout(() => { if (scheduleSaveStatusElement) { scheduleSaveStatusElement.textContent = ''; scheduleSaveStatusElement.classList.remove('visible', 'success', 'error', 'neutral'); } }, 3000);
+    });
+}
+
 
 // Adiciona listener para o campo de busca de admin
 if (adminSearchUserInput) {
