@@ -255,32 +255,59 @@ function fetchScheduleSettings() {
 
 
 // --- Lógica de Autenticação ---
-auth.onAuthStateChanged(async user => { // Tornamos a função async para usar await
+auth.onAuthStateChanged(async user => { // Mantenha async
     if (user) {
+        let userObjectToUse = user; // Começa com o objeto 'user' do callback
+
         try {
-            // 1. TENTA RECARREGAR O PERFIL DO USUÁRIO DO FIREBASE
-            await user.reload();
-            // 2. APÓS O RELOAD, PEGUE O OBJETO DE USUÁRIO ATUALIZADO
-            //    (auth.currentUser pode ter sido atualizado pelo reload)
-            currentUser = auth.currentUser;
-            console.log("Perfil do usuário recarregado. Novo displayName:", currentUser.displayName);
+            console.log("onAuthStateChanged - Tentando user.reload() para perfil atualizado...");
+            await userObjectToUse.reload();
+            userObjectToUse = auth.currentUser; // Pega o objeto de usuário mais fresco após o reload
+            console.log("user.reload() bem-sucedido. displayName atual (antes de providerData):", userObjectToUse.displayName);
         } catch (error) {
-            console.error("Erro ao recarregar o perfil do usuário:", error);
-            // Se o reload falhar, usa o objeto 'user' original que foi passado para a função
-            currentUser = user;
+            console.error("Erro durante user.reload():", error);
+            // Em caso de falha no reload, continua com o objeto 'user' que recebemos
         }
 
-        // --- O RESTANTE DA SUA LÓGICA onAuthStateChanged CONTINUA AQUI, USANDO 'currentUser' ---
-        // Exemplo:
-        if (userInfo) userInfo.textContent = `Logado como: ${currentUser.displayName || currentUser.email}`;
+        // Agora, verifica providerData e atualiza o perfil do Firebase se necessário
+        let finalDisplayName = userObjectToUse.displayName; // Começa com o displayName atual
+        const providerData = userObjectToUse.providerData;
+
+        if (providerData && providerData.length > 0) {
+            const googleInfo = providerData.find(p => p.providerId === 'google.com');
+            if (googleInfo && googleInfo.displayName) {
+                if (googleInfo.displayName !== finalDisplayName) {
+                    console.log(`DisplayName divergente. Top-level: "${finalDisplayName}", ProviderData: "${googleInfo.displayName}". Tentando atualizar perfil do Firebase.`);
+                    finalDisplayName = googleInfo.displayName; // Usa o nome do providerData
+                    try {
+                        await userObjectToUse.updateProfile({ displayName: finalDisplayName });
+                        userObjectToUse = auth.currentUser; // Pega o usuário mais atualizado possível após updateProfile
+                        finalDisplayName = userObjectToUse.displayName; // Confirma o nome final
+                        console.log("Perfil do Firebase atualizado com displayName do providerData. Novo displayName:", finalDisplayName);
+                    } catch (updateError) {
+                        console.error("Erro ao atualizar o perfil do Firebase com displayName do providerData:", updateError);
+                        // Se updateProfile falhar, finalDisplayName já tem o valor do providerData para uso nesta sessão
+                    }
+                } else {
+                    // O displayName do providerData já é o mesmo do top-level, ou o top-level é nulo e o providerData tem um nome
+                    finalDisplayName = googleInfo.displayName || finalDisplayName; // Garante que temos o nome se o top-level era nulo
+                    console.log("DisplayName do providerData (" + googleInfo.displayName + ") é o mesmo do top-level ou o top-level foi atualizado.");
+                }
+            }
+        }
+
+        currentUser = userObjectToUse; // Define o currentUser global com o objeto mais atualizado que temos
+
+        // --- O RESTANTE DA SUA LÓGICA onAuthStateChanged CONTINUA AQUI ---
+        // Use 'finalDisplayName' para exibição e para salvar no seu banco de dados (allUsersLogins)
+        if (userInfo) userInfo.textContent = `Logado como: ${finalDisplayName || currentUser.email || "Usuário"}`;
         if (loginButton) loginButton.style.display = 'none';
         if (logoutButton) logoutButton.style.display = 'inline-block';
         if (tabsContainer) tabsContainer.style.display = 'block';
 
-        // Salvar/Atualizar informações de login do usuário com o nome potencialmente atualizado
         const userLoginRef = database.ref(`allUsersLogins/${currentUser.uid}`);
         userLoginRef.set({
-            name: currentUser.displayName || "Usuário Anônimo", // Usa o displayName de currentUser
+            name: finalDisplayName || "Usuário Anônimo", // Usa o nome mais preciso
             lastLogin: firebase.database.ServerValue.TIMESTAMP
         }).catch(error => {
             console.error("Erro ao salvar informações de login do usuário:", error);
@@ -289,7 +316,7 @@ auth.onAuthStateChanged(async user => { // Tornamos a função async para usar a
         // Verificar status de admin
         const adminStatusRef = database.ref(`admins/${currentUser.uid}`);
         try {
-            const snapshot = await adminStatusRef.once('value'); // Usando await aqui também
+            const snapshot = await adminStatusRef.once('value');
             isCurrentUserAdmin = snapshot.exists() && snapshot.val() === true;
             console.log("Status de Admin:", isCurrentUserAdmin);
 
@@ -299,8 +326,6 @@ auth.onAuthStateChanged(async user => { // Tornamos a função async para usar a
 
             if (isCurrentUserAdmin) {
                 loadAndRenderAllUsersListForAdmin();
-                // checkAndPerformAdminAutoAdd() será chamado após fetchScheduleSettings ter sucesso
-                // ou se as configs já estiverem carregadas
             } else {
                 const adminPanelTab = document.getElementById('tab-admin-panel');
                 if (adminPanelTab && adminPanelTab.classList.contains('active')) {
@@ -311,17 +336,14 @@ auth.onAuthStateChanged(async user => { // Tornamos a função async para usar a
                 allUsersDataForAdminCache = [];
             }
 
-            loadLists(); // Carrega listas de jogo
+            loadLists();
 
-            // updateListAvailabilityUI() é chamado quando as configs de horário carregam ou mudam,
-            // e também aqui para garantir que a UI reflita o estado de login.
             if (scheduleConfigLoaded) {
                 updateListAvailabilityUI();
-                if (isCurrentUserAdmin) { // checkAndPerformAdminAutoAdd depende de scheduleConfigLoaded E isListCurrentlyOpen
+                if (isCurrentUserAdmin) {
                     checkAndPerformAdminAutoAdd();
                 }
             }
-
         } catch (error) {
             console.error("Erro ao verificar admin:", error);
             isCurrentUserAdmin = false;
@@ -340,8 +362,8 @@ auth.onAuthStateChanged(async user => { // Tornamos a função async para usar a
         if (adminTabButton) adminTabButton.style.display = 'none';
 
         if (listStatusMessageElement) {
-            if (scheduleConfigLoaded) updateListAvailabilityUI(); // Mostra status de fechado
-            else listStatusMessageElement.textContent = ''; // Limpa se configs não carregadas
+            if (scheduleConfigLoaded) updateListAvailabilityUI();
+            else listStatusMessageElement.textContent = '';
         }
         if (confirmPresenceButton) confirmPresenceButton.disabled = true;
 
