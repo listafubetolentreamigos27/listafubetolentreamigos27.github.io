@@ -1,89 +1,141 @@
 <!DOCTYPE html>
-<html>
-  <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Welcome to Firebase Hosting</title>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lista - Futebol Entre Amigos</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" integrity="sha512-SnH5WK+bZxgPHs44uWIX+LLJAJ9/2PkPKZ5QiAj6Ta86w+fsb2TkcmfRyVX3pBnMFcV7oQPJkl9QevSCWr3W6A==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+</head>
+<body>
+    <div class="container">
+        <div class="game-info-header">
+            <h1>Lista de Presença</h1>
+            <h1>FUTEBOL ENTRE AMIGOS ⚽</h1>
 
-    <!-- update the version number as needed -->
-    <script defer src="/__/firebase/11.8.1/firebase-app-compat.js"></script>
-    <!-- include only the Firebase features as you need -->
-    <script defer src="/__/firebase/11.8.1/firebase-auth-compat.js"></script>
-    <script defer src="/__/firebase/11.8.1/firebase-database-compat.js"></script>
-    <script defer src="/__/firebase/11.8.1/firebase-firestore-compat.js"></script>
-    <script defer src="/__/firebase/11.8.1/firebase-functions-compat.js"></script>
-    <script defer src="/__/firebase/11.8.1/firebase-messaging-compat.js"></script>
-    <script defer src="/__/firebase/11.8.1/firebase-storage-compat.js"></script>
-    <script defer src="/__/firebase/11.8.1/firebase-analytics-compat.js"></script>
-    <script defer src="/__/firebase/11.8.1/firebase-remote-config-compat.js"></script>
-    <script defer src="/__/firebase/11.8.1/firebase-performance-compat.js"></script>
-    <!-- 
-      initialize the SDK after all desired features are loaded, set useEmulator to false
-      to avoid connecting the SDK to running emulators.
-    -->
-    <script defer src="/__/firebase/init.js?useEmulator=true"></script>
+            <div class="game-details-grid">
+                <div class="info-section time-info">
+                    <h3>Horários e Tolerância:</h3>
+                    <p><span class="label">Todo Sábado:</span> 16:00 às 18:00</p>
+                    <p><span class="label">Início:</span> 15:50</p>
+                    <p><span class="label">Tolerância:</span> 10 minutos</p>
+                    <p class="warning-text"><span class="label">Atenção:</span> 16:01 perde a vaga!</p>
+                </div>
+                <div class="info-section payment-info">
+                    <h3>Pagamento:</h3>
+                    <p><span class="label">Valor:</span> R$ 3,00 💵</p>
+                    <p><span class="label">PicPay:</span> <a href="https://picpay.me/futebolentreamigos27" target="_blank" rel="noopener noreferrer">futebolentreamigos27</a></p>
+                    <p><span class="label">Pix (Celular):</span> 27999296977</p>
+                </div>
+            </div>
+            <div class="external-links">
+                <h3>Links Úteis:</h3>
+                <p><a href="https://docs.google.com/document/d/1NYg9u0BggBE2kcdWnsLoMyg5xm2CR34vqTP17OgFOgs/edit?usp=sharing" target="_blank" rel="noopener noreferrer">Acesse as regras da pelada</a></p>
+                <p><a href="https://docs.google.com/spreadsheets/d/1Zk7kyL-C-s0rBq9JB9J1eNqOfTrnJcZkokIS_y_uyN8/edit?usp=sharing" target="_blank" rel="noopener noreferrer">Controle Financeiro</a></p>
+            </div>
+        </div>
+        <p id="list-status-message" class="list-status"></p> <div class="controls"></div>
+        <div id="auth-container">
+            <p id="user-info">Por favor, faça login para participar.</p>
+            <button id="login-button"><i class="fab fa-google"></i> Login com Google</button>
+            <button id="logout-button" style="display:none;"><i class="fas fa-sign-out-alt"></i> Logout</button>
+        </div>
 
-    <style media="screen">
-      body { background: #ECEFF1; color: rgba(0,0,0,0.87); font-family: Roboto, Helvetica, Arial, sans-serif; margin: 0; padding: 0; }
-      #message { background: white; max-width: 360px; margin: 100px auto 16px; padding: 32px 24px; border-radius: 3px; }
-      #message h2 { color: #ffa100; font-weight: bold; font-size: 16px; margin: 0 0 8px; }
-      #message h1 { font-size: 22px; font-weight: 300; color: rgba(0,0,0,0.6); margin: 0 0 16px;}
-      #message p { line-height: 140%; margin: 16px 0 24px; font-size: 14px; }
-      #message a { display: block; text-align: center; background: #039be5; text-transform: uppercase; text-decoration: none; color: white; padding: 16px; border-radius: 4px; }
-      #message, #message a { box-shadow: 0 1px 3px rgba(0,0,0,0.12), 0 1px 2px rgba(0,0,0,0.24); }
-      #load { color: rgba(0,0,0,0.4); text-align: center; font-size: 13px; }
-      @media (max-width: 600px) {
-        body, #message { margin-top: 0; background: white; box-shadow: none; }
-        body { border-top: 16px solid #ffa100; }
-      }
-    </style>
-  </head>
-  <body>
-    <div id="message">
-      <h2>Welcome</h2>
-      <h1>Firebase Hosting Setup Complete</h1>
-      <p>You're seeing this because you've successfully setup Firebase Hosting. Now it's time to go build something extraordinary!</p>
-      <a target="_blank" href="https://firebase.google.com/docs/hosting/">Open Hosting Documentation</a>
+        <div class="tabs-container" style="display:none;">
+            <div class="tab-buttons">
+                <button class="tab-button active" data-tab="tab-game-lists"><i class="fas fa-list-ul"></i> Listas do Jogo</button>
+                <button class="tab-button" data-tab="tab-admin-panel" id="admin-tab-button" style="display:none;"><i class="fas fa-user-shield"></i> Painel do Admin</button>
+            </div>
+
+            <div class="tab-content active" id="tab-game-lists">
+                <div class="controls">
+                    <label for="is-goalkeeper">Sou goleiro?  <input type="checkbox" id="is-goalkeeper"></label>
+                    <button id="confirm-presence-button"><i class="fas fa-user-check"></i> Confirmar Presença</button>
+                </div>
+                <p id="error-message" class="error-message"></p>
+                <div class="list-section">
+                    <h2>Goleiros Confirmados (<span id="confirmed-gk-count">0</span>/<span id="max-goalkeepers-display">4</span>)</h2>
+                    <ul id="confirmed-goalkeepers-list"></ul>
+                </div>
+                <div class="list-section">
+                    <h2>Jogadores de Linha Confirmados (<span id="confirmed-fp-count">0</span>/<span id="max-fieldplayers-display">20</span>)</h2>
+                    <ul id="confirmed-fieldplayers-list"></ul>
+                </div>
+                <div class="list-section">
+                    <h2>Lista de Espera (<span id="waiting-count">0</span>)</h2>
+                    <ul id="waiting-list"></ul>
+                </div>
+            </div>
+
+            <div class="tab-content" id="tab-admin-panel">
+                <div class="admin-panel-content">
+                    <div class="config-section schedule-config-section">
+                        <h4><i class="fas fa-clock"></i> Configurar Horários da Lista (Horário de Brasília)</h4>
+                        <div class="schedule-form-grid">
+                            <div class="form-group">
+                                <label for="admin-open-day">Dia de Abertura:</label>
+                                <select id="admin-open-day">
+                                    <option value="0">Domingo</option>
+                                    <option value="1">Segunda-feira</option>
+                                    <option value="2">Terça-feira</option>
+                                    <option value="3">Quarta-feira</option>
+                                    <option value="4">Quinta-feira</option>
+                                    <option value="5">Sexta-feira</option>
+                                    <option value="6">Sábado</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="admin-open-hour">Hora Abertura (0-23):</label>
+                                <input type="number" id="admin-open-hour" min="0" max="23" placeholder="HH">
+                            </div>
+                            <div class="form-group">
+                                <label for="admin-open-minute">Minuto Abertura (0-59):</label>
+                                <input type="number" id="admin-open-minute" min="0" max="59" placeholder="MM">
+                            </div>
+
+                            <div class="form-group">
+                                <label for="admin-close-day">Dia de Fechamento:</label>
+                                <select id="admin-close-day">
+                                    <option value="0">Domingo</option>
+                                    <option value="1">Segunda-feira</option>
+                                    <option value="2">Terça-feira</option>
+                                    <option value="3">Quarta-feira</option>
+                                    <option value="4">Quinta-feira</option>
+                                    <option value="5">Sexta-feira</option>
+                                    <option value="6">Sábado</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="admin-close-hour">Hora Fechamento (0-23):</label>
+                                <input type="number" id="admin-close-hour" min="0" max="23" placeholder="HH">
+                            </div>
+                            <div class="form-group">
+                                <label for="admin-close-minute">Minuto Fechamento (0-59):</label>
+                                <input type="number" id="admin-close-minute" min="0" max="59" placeholder="MM">
+                                <small>Ex: Para fechar às 16:01, use Hora 16, Minuto 1.</small>
+                            </div>
+                        </div>
+                        <button id="save-schedule-button" class="admin-action-button"><i class="fas fa-save"></i> Salvar Horários</button>
+                        <p id="schedule-save-status" class="status-feedback"></p>
+                    </div>
+
+                    <hr class="admin-section-divider">
+                    <h3>Usuários Registrados</h3>
+                    <p><small>Lista de usuários que já fizeram login. Use para adicionar jogadores às listas de futebol.</small></p>
+                    <div class="admin-user-actions">
+                        <input type="text" id="admin-search-user" placeholder="Buscar usuário por nome ou UID...">
+                    </div>
+                    <ul id="admin-all-users-list">
+                    </ul>
+                </div>
+            </div>
+        </div>
+        <p id="error-message" class="error-message"></p>
     </div>
-    <p id="load">Firebase SDK Loading&hellip;</p>
+    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-database-compat.js"></script>
 
-    <script>
-      document.addEventListener('DOMContentLoaded', function() {
-        const loadEl = document.querySelector('#load');
-        // // 🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥
-        // // The Firebase SDK is initialized and available here!
-        //
-        // firebase.auth().onAuthStateChanged(user => { });
-        // firebase.database().ref('/path/to/ref').on('value', snapshot => { });
-        // firebase.firestore().doc('/foo/bar').get().then(() => { });
-        // firebase.functions().httpsCallable('yourFunction')().then(() => { });
-        // firebase.messaging().requestPermission().then(() => { });
-        // firebase.storage().ref('/path/to/ref').getDownloadURL().then(() => { });
-        // firebase.analytics(); // call to activate
-        // firebase.analytics().logEvent('tutorial_completed');
-        // firebase.performance(); // call to activate
-        //
-        // // 🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥
-
-        try {
-          let app = firebase.app();
-          let features = [
-            'auth', 
-            'database', 
-            'firestore',
-            'functions',
-            'messaging', 
-            'storage', 
-            'analytics', 
-            'remoteConfig',
-            'performance',
-          ].filter(feature => typeof app[feature] === 'function');
-          loadEl.textContent = `Firebase SDK loaded with ${features.join(', ')}`;
-        } catch (e) {
-          console.error(e);
-          loadEl.textContent = 'Error loading the Firebase SDK, check the console.';
-        }
-      });
-    </script>
-  </body>
+    <script src="script.js"></script>
+</body>
 </html>
