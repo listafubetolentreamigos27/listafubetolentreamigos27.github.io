@@ -1,0 +1,40 @@
+{
+  "rules": {
+    "admins": {
+      ".read": "auth != null",
+      ".write": false // Gerencie admins via console ou função segura
+    },
+    "allUsersLogins": {
+      ".read": "auth != null",
+      "$userId": {
+        ".write": "auth != null && auth.uid == $userId",
+        ".validate": "newData.hasChildren(['name', 'lastLogin'])"
+      }
+    },
+    "listaFutebol": {
+      ".read": "auth != null",
+      ".write": "auth != null",
+      "jogadoresConfirmados": {
+        "$playerId": {
+          ".write": "auth != null",// && (root.child('admins').child(auth.uid).exists() || auth.uid == $playerId)",
+          ".validate": "newData.val() === null || newData.hasChildren(['name', 'isGoalkeeper', 'timestamp'])"
+        }
+      },
+      "listaEspera": {
+        "$playerId": {
+          ".write": "auth != null && (root.child('admins').child(auth.uid).exists() || auth.uid == $playerId)",
+          ".validate": "newData.val() === null || newData.hasChildren(['name', 'isGoalkeeper', 'timestamp'])"
+        }
+      }
+    },
+    "scheduleState": {
+      ".read": true,
+      ".write": "auth != null"
+    },
+    "scheduleSettings": {
+      ".read": true,
+      // Apenas administradores podem escrever/modificar as configurações do cronograma
+      ".write": "auth != null && root.child('admins').child(auth.uid).exists()"
+    }
+  }
+}
