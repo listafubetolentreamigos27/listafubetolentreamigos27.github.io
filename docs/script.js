@@ -652,8 +652,8 @@ function displayGuestAddStatus(message, isError = false) {
 }
 
 function isItFridayInBrasilia() {
-    const brasiliaTime = getCurrentBrasiliaDateTimeParts(); // Você já tem esta função
-    return brasiliaTime.dayOfWeek === 5; // Sexta-feira é o dia 5 (Domingo=0, Segunda=1, ..., Sexta=5, Sábado=6)
+    const brasiliaTime = getCurrentBrasiliaDateTimeParts();
+    return brasiliaTime.dayOfWeek === 5 || brasiliaTime.dayOfWeek === 6; // Sexta-feira ou Sábado)
 }
 
 function updateGuestAdditionAvailabilityUI() {
