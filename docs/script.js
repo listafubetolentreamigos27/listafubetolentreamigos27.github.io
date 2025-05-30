@@ -233,7 +233,7 @@ function fetchScheduleSettings() {
         scheduleConfigLoaded = true;
 
         updateListAvailabilityUI();
-
+        updateGuestAdditionAvailabilityUI();
         if (currentUser) {
             populateScheduleForm(currentScheduleConfig); // Popula o formulário quando as configs carregam/mudam
             checkAndPerformAdminAutoAdd();
@@ -242,6 +242,7 @@ function fetchScheduleSettings() {
         if (listStatusUpdateInterval) clearInterval(listStatusUpdateInterval);
         listStatusUpdateInterval = setInterval(() => {
             updateListAvailabilityUI();
+            updateGuestAdditionAvailabilityUI();
         }, LIST_STATUS_UPDATE_INTERVAL_MS);
 
     }, (error) => {
@@ -340,7 +341,7 @@ auth.onAuthStateChanged(async user => { // Mantenha async
                 if (adminAllUsersListElement) adminAllUsersListElement.innerHTML = '';
                 allUsersDataForAdminCache = [];
             }
-
+            updateGuestAdditionAvailabilityUI();
             loadLists();
 
             if (scheduleConfigLoaded) {
@@ -360,6 +361,7 @@ auth.onAuthStateChanged(async user => { // Mantenha async
     } else { // Usuário deslogado
         isCurrentUserAdmin = false;
         currentUser = null;
+        updateGuestAdditionAvailabilityUI();
         if (userInfo) userInfo.textContent = 'Por favor, faça login para participar.';
         if (loginButton) loginButton.style.display = 'inline-block';
         if (logoutButton) logoutButton.style.display = 'none';
@@ -649,6 +651,66 @@ function displayGuestAddStatus(message, isError = false) {
     }
 }
 
+function isItFridayInBrasilia() {
+    const brasiliaTime = getCurrentBrasiliaDateTimeParts(); // Você já tem esta função
+    return brasiliaTime.dayOfWeek === 5; // Sexta-feira é o dia 5 (Domingo=0, Segunda=1, ..., Sexta=5, Sábado=6)
+}
+
+function updateGuestAdditionAvailabilityUI() {
+    const guestNameInputElem = guestNameInput; // Usando as vars globais já definidas
+    const guestIsGoalkeeperCheckboxElem = guestIsGoalkeeperCheckbox;
+    const addGuestButtonElem = addGuestButton;
+    const guestFridayMessageElem = document.getElementById('guest-friday-message');
+    // Seleciona a label do nome e o grupo do checkbox de goleiro para escondê-los também
+    const guestNameLabel = document.querySelector('label[for="guest-name"]');
+    const guestIsGkGroup = document.querySelector('.guest-is-goalkeeper-group');
+
+
+    if (!guestNameInputElem || !guestIsGoalkeeperCheckboxElem || !addGuestButtonElem || !guestFridayMessageElem || !guestNameLabel || !guestIsGkGroup) {
+        // Se algum elemento essencial não for encontrado, não faz nada para evitar erros.
+        return;
+    }
+
+    const canAddGuestsTodayByTime = isItFridayInBrasilia();
+
+    if (isCurrentUserAdmin) { // Admins sempre podem adicionar
+        guestNameInputElem.disabled = false;
+        guestIsGoalkeeperCheckboxElem.disabled = false;
+        addGuestButtonElem.disabled = false;
+        guestFridayMessageElem.style.display = 'none'; // Esconde mensagem de restrição
+
+        // Garante que os elementos do formulário estão visíveis para o admin
+        guestNameLabel.style.display = 'block';
+        guestIsGkGroup.style.display = 'flex'; // Ou o display original que você usa
+        guestNameInputElem.style.display = 'block'; // Ou o display original
+        addGuestButtonElem.style.display = 'inline-block'; // Ou o display original
+
+    } else if (canAddGuestsTodayByTime) { // Usuários normais, na Sexta-feira
+        guestNameInputElem.disabled = false;
+        guestIsGoalkeeperCheckboxElem.disabled = false;
+        addGuestButtonElem.disabled = false;
+        guestFridayMessageElem.style.display = 'none';
+
+        guestNameLabel.style.display = 'block';
+        guestIsGkGroup.style.display = 'flex';
+        guestNameInputElem.style.display = 'block';
+        addGuestButtonElem.style.display = 'inline-block';
+
+    } else { // Usuários normais, NÃO é Sexta-feira
+        guestNameInputElem.disabled = true;
+        guestIsGoalkeeperCheckboxElem.disabled = true;
+        addGuestButtonElem.disabled = true;
+        guestFridayMessageElem.textContent = "Adição de convidados permitida apenas às sextas-feiras.";
+        guestFridayMessageElem.style.display = 'block'; // Mostra mensagem de restrição
+
+        // Opcional: Esconder os campos em vez de apenas desabilitar
+        // guestNameLabel.style.display = 'none';
+        // guestIsGkGroup.style.display = 'none';
+        // guestNameInputElem.style.display = 'none';
+        // addGuestButtonElem.style.display = 'none';
+    }
+}
+
 if (addGuestButton) {
     addGuestButton.addEventListener('click', () => {
         if (!currentUser) {
@@ -663,6 +725,12 @@ if (addGuestButton) {
         const guestName = guestNameInput.value.trim();
         if (!guestName) {
             displayGuestAddStatus("Por favor, insira o nome do convidado.", true);
+            return;
+        }
+
+        // NOVA VERIFICAÇÃO DE SEXTA-FEIRA PARA NÃO-ADMINS
+        if (!isCurrentUserAdmin && !isItFridayInBrasilia()) {
+            displayGuestAddStatus("Convidados só podem ser adicionados às sextas-feiras.", true);
             return;
         }
 
