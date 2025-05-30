@@ -568,6 +568,91 @@ hr.admin-section-divider {
         border: 1px solid #f5c6cb;
     }
 
+hr.section-divider {
+    border: 0;
+    height: 1px;
+    background-color: #e0e0e0;
+    margin: 30px 0;
+}
+
+.guest-controls {
+    margin-top: 25px;
+    padding: 20px;
+    background-color: #f9f9f9;
+    border: 1px solid #eee;
+    border-radius: 6px;
+}
+
+    .guest-controls h4 {
+        margin-top: 0;
+        margin-bottom: 15px;
+        color: #333;
+        font-size: 1.2em;
+    }
+
+        .guest-controls h4 i {
+            margin-right: 8px;
+            color: #007bff;
+        }
+
+    /* Reutilizando .form-group já definido para o painel admin, ou defina especificamente se necessário */
+    .guest-controls .form-group {
+        margin-bottom: 15px;
+    }
+
+        .guest-controls .form-group label {
+            display: block; /* Garante que a label fique acima do input de texto */
+            margin-bottom: 5px;
+            font-weight: bold;
+            font-size: 0.9em;
+        }
+
+        .guest-controls .form-group input[type="text"] {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+
+    .guest-controls .guest-is-goalkeeper-group {
+        display: flex;
+        align-items: center;
+    }
+
+        .guest-controls .guest-is-goalkeeper-group input[type="checkbox"] {
+            width: auto; /* Tamanho padrão para checkbox */
+            margin-right: 8px;
+            transform: scale(1.1);
+        }
+
+        .guest-controls .guest-is-goalkeeper-group label {
+            margin-bottom: 0; /* Remove margem inferior para label do checkbox */
+            font-weight: normal;
+        }
+
+    .guest-controls .action-button, /* Classe genérica para botões de ação */
+    #add-guest-button {
+        background-color: #5cb85c; /* Verde para adicionar */
+        color: white;
+        padding: 10px 15px;
+    }
+
+        .guest-controls .action-button:hover,
+        #add-guest-button:hover {
+            background-color: #4cae4c;
+        }
+
+/* Reutilizando .status-feedback do painel admin */
+.status-feedback.visible {
+    display: block !important; /* Para garantir visibilidade */
+}
+
+.guest-tag {
+    font-style: italic;
+    color: #555 !important; /* Sobrescreve a cor de .player-info se necessário */
+    margin-left: 5px;
+}
 
 /* === Media Queries para Responsividade Mobile === */
 

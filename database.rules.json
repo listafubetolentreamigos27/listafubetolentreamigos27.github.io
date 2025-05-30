@@ -16,15 +16,18 @@
       ".write": "auth != null",
       "jogadoresConfirmados": {
         "$playerId": {
-          ".write": "auth != null",// && (root.child('admins').child(auth.uid).exists() || auth.uid == $playerId)",
-          ".validate": "newData.val() === null || newData.hasChildren(['name', 'isGoalkeeper', 'timestamp'])"
+          ".write": "auth != null && (root.child('admins').child(auth.uid).exists() || auth.uid == $playerId || (newData.child('isGuest').val() === true && newData.child('addedByUid').val() === auth.uid && $playerId.matches(/^guest_.*/)) || (data.exists() && data.child('isGuest').val() === true && data.child('addedByUid').val() === auth.uid && newData.val() === null && $playerId.matches(/^guest_.*/)))",
+          ".validate": "newData.val() === null || (newData.hasChildren(['name', 'isGoalkeeper', 'timestamp']) && newData.child('name').isString() && newData.child('name').val().length > 0 && newData.child('isGoalkeeper').isBoolean() && newData.child('timestamp').isNumber() && newData.child('timestamp').val() <= now && ((newData.hasChild('isGuest') && newData.child('isGuest').val() === true) ? (newData.child('isGuest').isBoolean() && newData.hasChild('addedByUid') && newData.child('addedByUid').isString() && newData.child('addedByUid').val().length > 0 && newData.hasChild('addedByName') && newData.child('addedByName').isString() && newData.child('addedByName').val().length > 0) : ((!newData.hasChild('isGuest') || newData.child('isGuest').val() === false) && !newData.hasChild('addedByUid') && !newData.hasChild('addedByName'))))"
         }
       },
       "listaEspera": {
         "$playerId": {
-          ".write": "auth != null && (root.child('admins').child(auth.uid).exists() || auth.uid == $playerId)",
-          ".validate": "newData.val() === null || newData.hasChildren(['name', 'isGoalkeeper', 'timestamp'])"
+          ".write": "auth != null && (root.child('admins').child(auth.uid).exists() || auth.uid == $playerId || (newData.child('isGuest').val() === true && newData.child('addedByUid').val() === auth.uid && $playerId.matches(/^guest_.*/)) || (data.exists() && data.child('isGuest').val() === true && data.child('addedByUid').val() === auth.uid && newData.val() === null && $playerId.matches(/^guest_.*/)))",
+          ".validate": "newData.val() === null || (newData.hasChildren(['name', 'isGoalkeeper', 'timestamp']) && newData.child('name').isString() && newData.child('name').val().length > 0 && newData.child('isGoalkeeper').isBoolean() && newData.child('timestamp').isNumber() && newData.child('timestamp').val() <= now && ((newData.hasChild('isGuest') && newData.child('isGuest').val() === true) ? (newData.child('isGuest').isBoolean() && newData.hasChild('addedByUid') && newData.child('addedByUid').isString() && newData.child('addedByUid').val().length > 0 && newData.hasChild('addedByName') && newData.child('addedByName').isString() && newData.child('addedByName').val().length > 0) : ((!newData.hasChild('isGuest') || newData.child('isGuest').val() === false) && !newData.hasChild('addedByUid') && !newData.hasChild('addedByName'))))"
         }
+      },
+      "$other": {
+        ".validate": "$other === 'jogadoresConfirmados' || $other === 'listaEspera' || (auth != null && root.child('admins').child(auth.uid).exists())"
       }
     },
     "scheduleState": {

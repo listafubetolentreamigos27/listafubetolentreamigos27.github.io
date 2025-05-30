@@ -43,6 +43,11 @@ const confirmedGoalkeepersListElement = document.getElementById('confirmed-goalk
 const confirmedFieldPlayersListElement = document.getElementById('confirmed-fieldplayers-list');
 const waitingListElement = document.getElementById('waiting-list');
 
+const guestNameInput = document.getElementById('guest-name');
+const guestIsGoalkeeperCheckbox = document.getElementById('guest-is-goalkeeper');
+const addGuestButton = document.getElementById('add-guest-button');
+const guestAddStatusElement = document.getElementById('guest-add-status');
+
 const confirmedGkCountSpan = document.getElementById('confirmed-gk-count');
 const maxGoalkeepersDisplaySpan = document.getElementById('max-goalkeepers-display');
 const confirmedFpCountSpan = document.getElementById('confirmed-fp-count');
@@ -631,6 +636,134 @@ confirmPresenceButton.addEventListener('click', () => {
     });
 });
 
+function displayGuestAddStatus(message, isError = false) {
+    if (guestAddStatusElement) {
+        guestAddStatusElement.textContent = message;
+        guestAddStatusElement.className = `status-feedback ${isError ? 'error' : 'success'} visible`; // Adiciona 'visible'
+        setTimeout(() => {
+            if (guestAddStatusElement) {
+                guestAddStatusElement.textContent = '';
+                guestAddStatusElement.classList.remove('visible', 'error', 'success');
+            }
+        }, 4000);
+    }
+}
+
+if (addGuestButton) {
+    addGuestButton.addEventListener('click', () => {
+        if (!currentUser) {
+            displayGuestAddStatus("Você precisa estar logado para adicionar um convidado.", true);
+            return;
+        }
+        if (!isCurrentUserAdmin && !isListCurrentlyOpen()) {
+            displayGuestAddStatus("A lista de presença não está aberta para adicionar convidados.", true);
+            return;
+        }
+
+        const guestName = guestNameInput.value.trim();
+        if (!guestName) {
+            displayGuestAddStatus("Por favor, insira o nome do convidado.", true);
+            return;
+        }
+
+        const guestIsGoalkeeper = guestIsGoalkeeperCheckbox.checked;
+        // Gera um ID único para o convidado
+        const guestId = 'guest_' + database.ref().push().key; // Garante um ID mais único
+
+        const currentUserNameForGuest = (currentUser && currentUser.displayName) ? currentUser.displayName : "Anfitrião";
+
+        displayGuestAddStatus(`Adicionando ${guestName}...`, false);
+
+        const listaFutebolRef = database.ref('listaFutebol');
+        listaFutebolRef.transaction((currentListaFutebolData) => {
+            if (currentListaFutebolData === null) {
+                currentListaFutebolData = { jogadoresConfirmados: {}, listaEspera: {} };
+            }
+            const confirmedPlayers = currentListaFutebolData.jogadoresConfirmados || {};
+            const waitingPlayers = currentListaFutebolData.listaEspera || {};
+
+            // Verifica se este anfitrião já adicionou um convidado com o mesmo nome (evitar duplicidade simples)
+            const guestAlreadyExists = Object.values(confirmedPlayers).some(p => p.isGuest && p.name === guestName && p.addedByUid === currentUser.uid) ||
+                Object.values(waitingPlayers).some(p => p.isGuest && p.name === guestName && p.addedByUid === currentUser.uid);
+            if (guestAlreadyExists) {
+                console.log("Convidado já adicionado por este usuário.");
+                // Para sinalizar ao callback que foi essa a razão do aborto
+                // Vamos retornar um objeto especial que não será escrito, mas pode ser inspecionado
+                return { _transaction_aborted_reason: "guest_exists" };
+            }
+
+            const confirmedPlayersArray = Object.values(confirmedPlayers);
+            const numConfirmedGoalkeepers = confirmedPlayersArray.filter(p => p.isGoalkeeper).length;
+            const numConfirmedFieldPlayers = confirmedPlayersArray.filter(p => !p.isGoalkeeper).length;
+
+            const guestPlayerData = {
+                name: guestName,
+                isGoalkeeper: guestIsGoalkeeper,
+                isGuest: true,
+                addedByUid: currentUser.uid,
+                addedByName: currentUserNameForGuest,
+                timestamp: firebase.database.ServerValue.TIMESTAMP
+            };
+
+            let actionTaken = null;
+
+            if (guestIsGoalkeeper) {
+                if (numConfirmedGoalkeepers < MAX_GOALKEEPERS) {
+                    confirmedPlayers[guestId] = guestPlayerData;
+                    actionTaken = 'guest_confirmed_gk';
+                } else {
+                    waitingPlayers[guestId] = guestPlayerData;
+                    actionTaken = 'guest_waiting_gk';
+                }
+            } else { // Convidado jogador de linha
+                if (numConfirmedFieldPlayers < MAX_FIELD_PLAYERS) {
+                    confirmedPlayers[guestId] = guestPlayerData;
+                    actionTaken = 'guest_confirmed_fp';
+                } else {
+                    waitingPlayers[guestId] = guestPlayerData;
+                    actionTaken = 'guest_waiting_fp';
+                }
+            }
+
+            if (actionTaken) {
+                currentListaFutebolData.jogadoresConfirmados = confirmedPlayers;
+                currentListaFutebolData.listaEspera = waitingPlayers;
+                return currentListaFutebolData;
+            } else {
+                // Não deve chegar aqui se a lógica de "guestAlreadyExists" estiver correta
+                return undefined; // Aborta se nenhuma ação foi tomada
+            }
+
+        }, (error, committed, snapshot) => {
+            if (error) {
+                console.error("Transação para adicionar convidado falhou:", error);
+                displayGuestAddStatus("Erro ao adicionar convidado. Tente novamente.", true);
+            } else if (!committed) {
+                // Se snapshot.val() tem nossa flag _transaction_aborted_reason
+                const abortedReason = snapshot.val()?._transaction_aborted_reason;
+                if (abortedReason === "guest_exists") {
+                    displayGuestAddStatus("Você já adicionou um convidado com este nome.", true);
+                } else {
+                    displayGuestAddStatus("Não foi possível adicionar o convidado (lista cheia ou conflito).", true);
+                }
+            } else {
+                const dataCommitted = snapshot.val();
+                let successMessage = "Convidado adicionado com sucesso!";
+                // Tenta encontrar o convidado para uma mensagem mais específica
+                if (dataCommitted.jogadoresConfirmados && dataCommitted.jogadoresConfirmados[guestId]) {
+                    successMessage = `${guestName} (convidado) adicionado à lista principal!`;
+                } else if (dataCommitted.listaEspera && dataCommitted.listaEspera[guestId]) {
+                    successMessage = `${guestName} (convidado) adicionado à lista de espera.`;
+                }
+                displayGuestAddStatus(successMessage, false);
+                if (guestNameInput) guestNameInput.value = '';
+                if (guestIsGoalkeeperCheckbox) guestIsGoalkeeperCheckbox.checked = false;
+            }
+        });
+    });
+}
+
+
 async function addToWaitingList(playerId, playerName, isGoalkeeper, dataToSet = null) {
     try {
         const waitingData = dataToSet ? dataToSet : {
@@ -711,6 +844,50 @@ async function checkWaitingListAndPromote() {
 }
 
 // --- Funções de Renderização da UI (Listas de Jogo) ---
+//function renderPlayerListItem(player, index, listTypeIdentifier) {
+//    const li = document.createElement('li');
+
+//    const playerTextInfo = document.createElement('div');
+//    playerTextInfo.classList.add('player-text-info');
+
+//    const orderSpan = document.createElement('span');
+//    orderSpan.classList.add('player-order');
+//    orderSpan.textContent = `${index + 1}. `;
+//    playerTextInfo.appendChild(orderSpan);
+
+//    const nameSpan = document.createElement('span');
+//    nameSpan.classList.add('player-name');
+//    nameSpan.textContent = player.name;
+//    playerTextInfo.appendChild(nameSpan);
+
+//    if (player.isGoalkeeper) {
+//        const gkIndicator = document.createElement('span');
+//        gkIndicator.classList.add('player-info');
+//        gkIndicator.textContent = ' (Goleiro)';
+//        if (listTypeIdentifier === 'confirmed-fp' || listTypeIdentifier === 'waiting') {
+//            playerTextInfo.appendChild(gkIndicator);
+//        }
+//    }
+//    li.appendChild(playerTextInfo);
+
+//    if (currentUser && (currentUser.uid === player.id || isCurrentUserAdmin)) {
+//        const removeBtn = document.createElement('button');
+//        removeBtn.classList.add('remove-button');
+
+//        if (isCurrentUserAdmin && currentUser.uid !== player.id) {
+//            removeBtn.innerHTML = '<i class="fas fa-user-times"></i> Remover'; // Ícone para admin removendo outro
+//            removeBtn.style.backgroundColor = '#f39c12'; // Cor laranja para ação de admin
+//        } else {
+//            removeBtn.innerHTML = '<i class="fas fa-sign-out-alt"></i> Sair'; // Ícone para sair (pode ser o mesmo de logout)
+//        }
+
+//        const listTypeForRemove = listTypeIdentifier.startsWith('confirmed') ? 'confirmed' : 'waiting';
+//        removeBtn.onclick = () => removePlayer(player.id, listTypeForRemove);
+//        li.appendChild(removeBtn);
+//    }
+//    return li;
+//}
+
 function renderPlayerListItem(player, index, listTypeIdentifier) {
     const li = document.createElement('li');
 
@@ -727,34 +904,76 @@ function renderPlayerListItem(player, index, listTypeIdentifier) {
     nameSpan.textContent = player.name;
     playerTextInfo.appendChild(nameSpan);
 
+    // Tag de Goleiro e Convidado
     if (player.isGoalkeeper) {
         const gkIndicator = document.createElement('span');
         gkIndicator.classList.add('player-info');
         gkIndicator.textContent = ' (Goleiro)';
-        if (listTypeIdentifier === 'confirmed-fp' || listTypeIdentifier === 'waiting') {
+        // Não adiciona explicitamente "(Goleiro)" se já estiver na lista de goleiros confirmados
+        if (listTypeIdentifier !== 'confirmed-gk') {
             playerTextInfo.appendChild(gkIndicator);
         }
     }
+    if (player.isGuest && player.addedByName) {
+        const guestIndicator = document.createElement('span');
+        guestIndicator.classList.add('player-info', 'guest-tag'); // Nova classe 'guest-tag'
+        guestIndicator.textContent = ` (Convidado por: ${player.addedByName})`;
+        playerTextInfo.appendChild(guestIndicator);
+    }
+
+
     li.appendChild(playerTextInfo);
 
-    if (currentUser && (currentUser.uid === player.id || isCurrentUserAdmin)) {
-        const removeBtn = document.createElement('button');
-        removeBtn.classList.add('remove-button');
+    // Lógica do Botão de Remover/Sair
+    let showRemoveButton = false;
+    let buttonText = "Sair";
+    let buttonIcon = "fas fa-sign-out-alt"; // Ícone padrão para sair
+    let buttonClass = "remove-button"; // Classe padrão
 
-        if (isCurrentUserAdmin && currentUser.uid !== player.id) {
-            removeBtn.innerHTML = '<i class="fas fa-user-times"></i> Remover'; // Ícone para admin removendo outro
-            removeBtn.style.backgroundColor = '#f39c12'; // Cor laranja para ação de admin
-        } else {
-            removeBtn.innerHTML = '<i class="fas fa-sign-out-alt"></i> Sair'; // Ícone para sair (pode ser o mesmo de logout)
+    if (currentUser) {
+        if (player.isGuest) {
+            // Admin pode remover qualquer convidado.
+            // O anfitrião (quem adicionou) pode remover seu próprio convidado.
+            if (isCurrentUserAdmin || (player.addedByUid && player.addedByUid === currentUser.uid)) {
+                showRemoveButton = true;
+                buttonText = "Remover Convidado";
+                buttonIcon = "fas fa-user-minus"; // Ou fas fa-trash-alt
+                // buttonClass += " remove-guest-btn"; // Opcional: classe específica
+            }
+        } else { // Jogador regular (não convidado)
+            if (isCurrentUserAdmin || currentUser.uid === player.id) {
+                showRemoveButton = true;
+                if (isCurrentUserAdmin && currentUser.uid !== player.id) {
+                    buttonText = "Remover";
+                    buttonIcon = "fas fa-user-times";
+                    // buttonClass += " admin-remove-player-btn"; // Opcional
+                } else { // currentUser.uid === player.id
+                    buttonText = "Sair";
+                    // buttonIcon já é "fas fa-sign-out-alt"
+                }
+            }
+        }
+    }
+
+    if (showRemoveButton) {
+        const removeBtn = document.createElement('button');
+        removeBtn.classList.add(buttonClass); // Usa a classe definida
+        removeBtn.innerHTML = `<i class="${buttonIcon}"></i> ${buttonText}`;
+
+        if (buttonText === "Remover" && isCurrentUserAdmin && currentUser.uid !== player.id) {
+            removeBtn.style.backgroundColor = '#f39c12'; // Laranja para admin removendo outro
+        } else if (buttonText === "Remover Convidado" && (isCurrentUserAdmin || (player.addedByUid && player.addedByUid === currentUser.uid))) {
+            removeBtn.style.backgroundColor = '#d9534f'; // Vermelho para remover convidado
         }
 
+
         const listTypeForRemove = listTypeIdentifier.startsWith('confirmed') ? 'confirmed' : 'waiting';
+        // O player.id para convidados é o guestId gerado. Para usuários normais, é o UID deles.
         removeBtn.onclick = () => removePlayer(player.id, listTypeForRemove);
         li.appendChild(removeBtn);
     }
     return li;
 }
-
 function renderConfirmedLists(confirmedPlayersObject) {
     if (confirmedGoalkeepersListElement) confirmedGoalkeepersListElement.innerHTML = '';
     if (confirmedFieldPlayersListElement) confirmedFieldPlayersListElement.innerHTML = '';
