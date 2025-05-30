@@ -917,7 +917,7 @@ function renderPlayerListItem(player, index, listTypeIdentifier) {
     if (player.isGuest && player.addedByName) {
         const guestIndicator = document.createElement('span');
         guestIndicator.classList.add('player-info', 'guest-tag'); // Nova classe 'guest-tag'
-        guestIndicator.textContent = ` (Convidado por: ${player.addedByName})`;
+        guestIndicator.textContent = ` (Convidado\npor: ${player.addedByName})`;
         playerTextInfo.appendChild(guestIndicator);
     }
 
@@ -936,7 +936,7 @@ function renderPlayerListItem(player, index, listTypeIdentifier) {
             // O anfitrião (quem adicionou) pode remover seu próprio convidado.
             if (isCurrentUserAdmin || (player.addedByUid && player.addedByUid === currentUser.uid)) {
                 showRemoveButton = true;
-                buttonText = "Remover Convidado";
+                buttonText = "Remover";
                 buttonIcon = "fas fa-user-minus"; // Ou fas fa-trash-alt
                 // buttonClass += " remove-guest-btn"; // Opcional: classe específica
             }
