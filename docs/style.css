@@ -578,8 +578,8 @@ hr.section-divider {
 .guest-controls {
     margin-top: 25px;
     padding: 20px;
-    background-color: #f9f9f9;
     border: 1px solid #eee;
+    margin-bottom: 25px;
     border-radius: 6px;
 }
 
