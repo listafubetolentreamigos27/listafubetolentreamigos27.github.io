@@ -917,7 +917,7 @@ function renderPlayerListItem(player, index, listTypeIdentifier) {
     if (player.isGuest && player.addedByName) {
         const guestIndicator = document.createElement('span');
         guestIndicator.classList.add('player-info', 'guest-tag'); // Nova classe 'guest-tag'
-        guestIndicator.textContent = ` (Convidado\npor: ${player.addedByName})`;
+        guestIndicator.textContent = ` (Convidado)`;
         playerTextInfo.appendChild(guestIndicator);
     }
 
@@ -947,9 +947,6 @@ function renderPlayerListItem(player, index, listTypeIdentifier) {
                     buttonText = "Remover";
                     buttonIcon = "fas fa-user-times";
                     // buttonClass += " admin-remove-player-btn"; // Opcional
-                } else { // currentUser.uid === player.id
-                    buttonText = "Sair";
-                    // buttonIcon já é "fas fa-sign-out-alt"
                 }
             }
         }
@@ -962,7 +959,7 @@ function renderPlayerListItem(player, index, listTypeIdentifier) {
 
         if (buttonText === "Remover" && isCurrentUserAdmin && currentUser.uid !== player.id) {
             removeBtn.style.backgroundColor = '#f39c12'; // Laranja para admin removendo outro
-        } else if (buttonText === "Remover Convidado" && (isCurrentUserAdmin || (player.addedByUid && player.addedByUid === currentUser.uid))) {
+        } else if (buttonText === "Remover" && (isCurrentUserAdmin || (player.addedByUid && player.addedByUid === currentUser.uid))) {
             removeBtn.style.backgroundColor = '#d9534f'; // Vermelho para remover convidado
         }
 
