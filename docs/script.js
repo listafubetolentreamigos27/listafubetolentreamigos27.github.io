@@ -1050,13 +1050,28 @@ function renderAdminUserListItemForPanel(user, isConfirmed, isInWaitingList) {
 
         gkLabel.htmlFor = isGoalkeeperCheckboxForAdmin.id;
 
+        const needsToleranceLabel = document.createElement('label');
+        needsToleranceLabel.textContent = '10 minutos? ';
+        needsToleranceLabel.style.marginRight = '5px';
+        needsToleranceLabel.style.fontSize = '0.9em';
+
+        const needsToleranceCheckboxForAdmin = document.createElement('input');
+        needsToleranceCheckboxForAdmin.type = 'checkbox';
+        needsToleranceCheckboxForAdmin.id = `admin-add-nt-${user.id}`;
+        needsToleranceCheckboxForAdmin.classList.add('admin-add-gk-checkbox');
+        needsToleranceCheckboxForAdmin.style.verticalAlign = 'middle';
+
+        needsToleranceLabel.htmlFor = needsToleranceCheckboxForAdmin.id;
+
         const addButton = document.createElement('button');
         addButton.innerHTML = '<i class="fas fa-user-plus"></i> Adicionar'; // Adiciona o ícone
         addButton.classList.add('admin-add-button');
-        addButton.onclick = () => adminAddPlayerToGame(user.id, user.name, isGoalkeeperCheckboxForAdmin.checked);
+        addButton.onclick = () => adminAddPlayerToGame(user.id, user.name, isGoalkeeperCheckboxForAdmin.checked, needsToleranceCheckboxForAdmin.checked);
 
         actionsDiv.appendChild(gkLabel);
         actionsDiv.appendChild(isGoalkeeperCheckboxForAdmin);
+        actionsDiv.appendChild(needsToleranceLabel);
+        actionsDiv.appendChild(needsToleranceCheckboxForAdmin);
         actionsDiv.appendChild(addButton);
     } else {
         const statusMsg = document.createElement('span');
@@ -1069,7 +1084,7 @@ function renderAdminUserListItemForPanel(user, isConfirmed, isInWaitingList) {
     return li;
 }
 
-async function adminAddPlayerToGame(playerId, playerName, isPlayerGoalkeeper) {
+async function adminAddPlayerToGame(playerId, playerName, isPlayerGoalkeeper, isPlayerNeedsTolerance) {
     if (!isCurrentUserAdmin) {
         displayErrorMessage("Ação restrita a administradores.");
         return;
@@ -1093,6 +1108,7 @@ async function adminAddPlayerToGame(playerId, playerName, isPlayerGoalkeeper) {
         const playerData = {
             name: playerName,
             isGoalkeeper: isPlayerGoalkeeper,
+            needsTolerance: isPlayerNeedsTolerance,
             timestamp: firebase.database.ServerValue.TIMESTAMP
         };
 
