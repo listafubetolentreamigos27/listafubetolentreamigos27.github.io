@@ -322,7 +322,7 @@ auth.onAuthStateChanged(async user => { // Mantenha async
         if (userInfo) userInfo.textContent = 'Por favor, faça login para participar.';
         if (loginButton) loginButton.style.display = 'inline-block';
         if (logoutButton) logoutButton.style.display = 'none';
-        if (tabsContainer) tabsContainer.style.display = 'block';
+        if (tabsContainer) tabsContainer.style.display = 'none';
         if (adminTabButton) adminTabButton.style.display = 'none';
 
         if (listStatusMessageElement) {

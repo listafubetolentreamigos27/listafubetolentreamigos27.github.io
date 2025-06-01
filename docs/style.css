@@ -276,15 +276,6 @@ button i.far { /* Seleciona os ícones Font Awesome dentro de botões */
             line-height: 1.4;
         }
 
-.player-text-info {
-    display: flex;
-    align-items: baseline;
-    gap: 4px;
-    flex-grow: 1; /* Permite que o texto cresça */
-    margin-right: 10px; /* Espaço antes do botão de remover */
-    overflow-wrap: break-word; /* Quebra palavras longas */
-    word-break: break-word; /* Quebra palavras longas */
-}
 
 .list-section li .player-order {
     font-weight: normal;
@@ -784,12 +775,6 @@ hr.section-divider {
 
     .list-section h2 {
         font-size: 1.15em;
-    }
-
-    .player-text-info {
-        margin-right: 0; /* Remove margem quando empilhado */
-        margin-bottom: 5px; /* Espaço abaixo do texto antes do botão, se empilhado */
-        width: 100%; /* Para que a quebra de palavra funcione bem */
     }
 
     .list-section ul li {
