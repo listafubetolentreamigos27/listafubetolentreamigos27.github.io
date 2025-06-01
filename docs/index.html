@@ -49,9 +49,11 @@
 
             <div class="tab-content active" id="tab-game-lists">
                 <div class="controls">
-                    <label for="is-goalkeeper">Sou goleiro?  <input type="checkbox" id="is-goalkeeper"></label>
+                    <label for="is-goalkeeper"><input type="checkbox" id="is-goalkeeper"> Sou goleiro? </label>
+                    <label for="needs-tolerance"> <input type="checkbox" id="needs-tolerance">  Preciso de 10min de tolerância (trabalho) </label>
                     <button id="confirm-presence-button"><i class="fas fa-user-check"></i> Confirmar minha Presença</button>
                 </div>
+                <p id="error-message" class="error-message"></p>
                 <hr class="section-divider"> <div class="guest-controls">
                     <h4><i class="fas fa-user-friends"></i> Adicionar Convidado</h4>
                     <p id="guest-friday-message" style="text-align:center; color:#721c24; margin-bottom:10px; display:none; font-weight:bold;"></p>
@@ -64,7 +66,6 @@
                     </div>
                     <p id="guest-add-status" class="status-feedback" style="margin-top:10px;"></p>
                 </div>
-                <p id="error-message" class="error-message"></p>
                 <div class="list-section">
                     <h2>Goleiros Confirmados (<span id="confirmed-gk-count">0</span>/<span id="max-goalkeepers-display">4</span>)</h2>
                     <ul id="confirmed-goalkeepers-list"></ul>

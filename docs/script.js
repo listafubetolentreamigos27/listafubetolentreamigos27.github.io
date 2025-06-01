@@ -38,6 +38,7 @@ const listStatusMessageElement = document.getElementById('list-status-message');
 
 const confirmPresenceButton = document.getElementById('confirm-presence-button');
 const isGoalkeeperCheckbox = document.getElementById('is-goalkeeper');
+const needsToleranceCheckbox = document.getElementById('needs-tolerance');
 
 const confirmedGoalkeepersListElement = document.getElementById('confirmed-goalkeepers-list');
 const confirmedFieldPlayersListElement = document.getElementById('confirmed-fieldplayers-list');
@@ -175,50 +176,6 @@ function updateListAvailabilityUI() {
 }
 
 // --- Carregar Configurações de Horário do Firebase ---
-//function fetchScheduleSettings() {
-//    const scheduleSettingsRef = database.ref('scheduleSettings');
-//    scheduleSettingsRef.on('value', (snapshot) => {
-//        const settings = snapshot.val();
-//        if (settings && typeof settings.openDay === 'number' && typeof settings.openHour === 'number') {
-//            currentScheduleConfig = settings;
-//            console.log("Configurações de horário carregadas/atualizadas do Firebase:", currentScheduleConfig);
-//        } else {
-//            console.warn("Config. de horário não encontradas ou inválidas no Firebase. Usando padrões.");
-//            // currentScheduleConfig já tem os valores padrão definidos no script
-//        }
-//        scheduleConfigLoaded = true;
-
-//        // Chamada inicial para atualizar a UI com as configs carregadas/padrão
-//        updateListAvailabilityUI();
-
-//        if (currentUser) {
-//            checkAndPerformAdminAutoAdd(); // Verifica se precisa adicionar admins
-//        }
-
-//        // Inicia ou reinicia o intervalo para atualizações automáticas de status da lista
-//        if (listStatusUpdateInterval) {
-//            clearInterval(listStatusUpdateInterval); // Limpa o intervalo anterior, se houver
-//        }
-//        listStatusUpdateInterval = setInterval(() => {
-//            // console.log("Intervalo: Verificando status da lista..."); // Para depuração
-//            updateListAvailabilityUI(); // Chama a função que reavalia e atualiza a UI
-//        }, LIST_STATUS_UPDATE_INTERVAL_MS);
-
-//    }, (error) => {
-//        console.error("Erro ao buscar configurações de horário:", error);
-//        scheduleConfigLoaded = true; // Marca como carregado para não bloquear, usará defaults
-//        updateListAvailabilityUI(); // Atualiza UI mesmo com erro (usando defaults)
-
-//        // Mesmo com erro, podemos iniciar o intervalo caso os defaults permitam abrir depois
-//        if (listStatusUpdateInterval) {
-//            clearInterval(listStatusUpdateInterval);
-//        }
-//        listStatusUpdateInterval = setInterval(() => {
-//            updateListAvailabilityUI();
-//        }, LIST_STATUS_UPDATE_INTERVAL_MS);
-//    });
-//}
-
 function fetchScheduleSettings() {
     const scheduleSettingsRef = database.ref('scheduleSettings');
     scheduleSettingsRef.on('value', (snapshot) => {
@@ -365,7 +322,7 @@ auth.onAuthStateChanged(async user => { // Mantenha async
         if (userInfo) userInfo.textContent = 'Por favor, faça login para participar.';
         if (loginButton) loginButton.style.display = 'inline-block';
         if (logoutButton) logoutButton.style.display = 'none';
-        if (tabsContainer) tabsContainer.style.display = 'none';
+        if (tabsContainer) tabsContainer.style.display = 'block';
         if (adminTabButton) adminTabButton.style.display = 'none';
 
         if (listStatusMessageElement) {
@@ -373,6 +330,7 @@ auth.onAuthStateChanged(async user => { // Mantenha async
             else listStatusMessageElement.textContent = '';
         }
         if (confirmPresenceButton) confirmPresenceButton.disabled = true;
+        if (needsToleranceCheckbox) needsToleranceCheckbox.checked = false;
 
         clearListsUI();
         if (adminAllUsersListElement) adminAllUsersListElement.innerHTML = '';
@@ -396,24 +354,6 @@ logoutButton.addEventListener('click', () => {
 });
 
 // --- Lógica das Abas ---
-//if (tabButtons && tabContents) {
-//    tabButtons.forEach(button => {
-//        button.addEventListener('click', () => {
-//            tabButtons.forEach(btn => btn.classList.remove('active'));
-//            tabContents.forEach(content => content.classList.remove('active'));
-//            button.classList.add('active');
-//            const targetTabId = button.getAttribute('data-tab');
-//            const targetContent = document.getElementById(targetTabId);
-//            if (targetContent) {
-//                targetContent.classList.add('active');
-//            }
-//            if (targetTabId === 'tab-admin-panel' && isCurrentUserAdmin && adminSearchUserInput) {
-//                filterAndRenderAdminUserList(adminSearchUserInput.value);
-//            }
-//        });
-//    });
-//}
-
 if (tabButtons && tabContents) {
     tabButtons.forEach(button => {
         button.addEventListener('click', () => {
@@ -541,6 +481,7 @@ confirmPresenceButton.addEventListener('click', () => {
     }
 
     const isGoalkeeperForTransaction = isGoalkeeperCheckbox.checked;
+    const needsToleranceForTransaction = needsToleranceCheckbox.checked;
     const playerIdForTransaction = currentUser.uid;
     const playerNameForTransaction = currentUser.displayName || "Jogador Anônimo";
 
@@ -569,6 +510,7 @@ confirmPresenceButton.addEventListener('click', () => {
         const playerData = {
             name: playerNameForTransaction,
             isGoalkeeper: isGoalkeeperForTransaction,
+            needsTolerance: needsToleranceForTransaction,
             timestamp: firebase.database.ServerValue.TIMESTAMP
         };
 
@@ -912,50 +854,6 @@ async function checkWaitingListAndPromote() {
 }
 
 // --- Funções de Renderização da UI (Listas de Jogo) ---
-//function renderPlayerListItem(player, index, listTypeIdentifier) {
-//    const li = document.createElement('li');
-
-//    const playerTextInfo = document.createElement('div');
-//    playerTextInfo.classList.add('player-text-info');
-
-//    const orderSpan = document.createElement('span');
-//    orderSpan.classList.add('player-order');
-//    orderSpan.textContent = `${index + 1}. `;
-//    playerTextInfo.appendChild(orderSpan);
-
-//    const nameSpan = document.createElement('span');
-//    nameSpan.classList.add('player-name');
-//    nameSpan.textContent = player.name;
-//    playerTextInfo.appendChild(nameSpan);
-
-//    if (player.isGoalkeeper) {
-//        const gkIndicator = document.createElement('span');
-//        gkIndicator.classList.add('player-info');
-//        gkIndicator.textContent = ' (Goleiro)';
-//        if (listTypeIdentifier === 'confirmed-fp' || listTypeIdentifier === 'waiting') {
-//            playerTextInfo.appendChild(gkIndicator);
-//        }
-//    }
-//    li.appendChild(playerTextInfo);
-
-//    if (currentUser && (currentUser.uid === player.id || isCurrentUserAdmin)) {
-//        const removeBtn = document.createElement('button');
-//        removeBtn.classList.add('remove-button');
-
-//        if (isCurrentUserAdmin && currentUser.uid !== player.id) {
-//            removeBtn.innerHTML = '<i class="fas fa-user-times"></i> Remover'; // Ícone para admin removendo outro
-//            removeBtn.style.backgroundColor = '#f39c12'; // Cor laranja para ação de admin
-//        } else {
-//            removeBtn.innerHTML = '<i class="fas fa-sign-out-alt"></i> Sair'; // Ícone para sair (pode ser o mesmo de logout)
-//        }
-
-//        const listTypeForRemove = listTypeIdentifier.startsWith('confirmed') ? 'confirmed' : 'waiting';
-//        removeBtn.onclick = () => removePlayer(player.id, listTypeForRemove);
-//        li.appendChild(removeBtn);
-//    }
-//    return li;
-//}
-
 function renderPlayerListItem(player, index, listTypeIdentifier) {
     const li = document.createElement('li');
 
@@ -982,6 +880,16 @@ function renderPlayerListItem(player, index, listTypeIdentifier) {
             playerTextInfo.appendChild(gkIndicator);
         }
     }
+
+    // NOVO: INDICADOR DE TOLERÂNCIA
+    if (player.needsTolerance === true) {
+        const toleranceIndicator = document.createElement('span');
+        toleranceIndicator.classList.add('player-info', 'tolerance-tag'); // player-info para espaçamento, tolerance-tag para estilo específico
+        toleranceIndicator.innerHTML = '<i class="far fa-clock"></i><span class="tolerance-text">(+10min)</span>'; // Ícone de relógio e texto
+        toleranceIndicator.title = "Precisa de 10 minutos de tolerância"; // Tooltip ao passar o mouse
+        playerTextInfo.appendChild(toleranceIndicator);
+    }
+
     if (player.isGuest && player.addedByName) {
         const guestIndicator = document.createElement('span');
         guestIndicator.classList.add('player-info', 'guest-tag'); // Nova classe 'guest-tag'
