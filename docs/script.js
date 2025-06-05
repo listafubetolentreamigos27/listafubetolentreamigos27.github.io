@@ -529,6 +529,13 @@ async function checkAndPerformAdminAutoAdd() {
     }
 }
 
+// --- Lógica da Lista de Presença (Firebase Refs e Funções) ---
+const confirmedPlayersRef = database.ref('listaFutebol/jogadoresConfirmados');
+const waitingListRef = database.ref('listaFutebol/listaEspera');
+
+if (maxGoalkeepersDisplaySpan) maxGoalkeepersDisplaySpan.textContent = MAX_GOALKEEPERS;
+if (maxFieldplayersDisplaySpan) maxFieldplayersDisplaySpan.textContent = MAX_FIELD_PLAYERS;
+
 function displayErrorMessage(message) {
     if (errorMessageElement) {
         errorMessageElement.textContent = message;
