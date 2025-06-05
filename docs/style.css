@@ -265,7 +265,7 @@ button i.far { /* Seleciona os ícones Font Awesome dentro de botões */
         padding: 0;
     }
 
-        .list-section ul li {
+      /*  .list-section ul li {
             background-color: #ecf0f1;
             padding: 10px 12px;
             margin-bottom: 8px;
@@ -274,7 +274,7 @@ button i.far { /* Seleciona os ícones Font Awesome dentro de botões */
             justify-content: space-between;
             align-items: center;
             line-height: 1.4;
-        }
+        }*/
 
 
 .list-section li .player-order {
@@ -825,6 +825,147 @@ hr.section-divider {
             flex-shrink: 0; /* Não encolhe o botão */
         }
 }
+
+.list-section ul li {
+    background-color: #fff; /* Fundo branco para o item, para contraste se a lista section tiver cor */
+    padding: 10px;
+    margin-bottom: 8px;
+    border-radius: 8px; /* Cantos um pouco mais arredondados */
+    display: flex;
+    align-items: center; /* Alinha verticalmente avatar, detalhes e botão */
+    border: 1px solid #f0f0f0; /* Borda muito sutil ou box-shadow */
+    /* box-shadow: 0 1px 3px rgba(0,0,0,0.05); */
+    gap: 12px; /* Espaço entre avatar, detalhes e botão */
+}
+
+.player-avatar-container {
+    flex-shrink: 0; /* Não deixa o avatar encolher */
+}
+
+.player-avatar {
+    width: 48px; /* Tamanho do avatar */
+    height: 48px;
+    border-radius: 50%; /* Avatar circular */
+    background-color: #e9ecef; /* Cor de fundo para o ícone ou se a imagem falhar */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden; /* Garante que a imagem não ultrapasse a borda circular */
+}
+
+    .player-avatar img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover; /* Cobre o espaço sem distorcer, cortando se necessário */
+    }
+
+    .player-avatar i.fas.fa-user-circle { /* Ícone padrão */
+        font-size: 2em; /* Tamanho do ícone */
+        color: #adb5bd; /* Cor do ícone */
+    }
+
+.player-details-main { /* Container para nome, timestamp, tags */
+    flex-grow: 1; /* Ocupa o espaço disponível */
+    display: flex;
+    flex-direction: column;
+    justify-content: center; /* Centraliza verticalmente o conteúdo se houver espaço extra */
+    overflow: hidden; /* Para nomes longos */
+}
+
+.player-name-display {
+    font-size: 1.1em; /* Nome um pouco maior */
+    font-weight: 500; /* Um pouco menos "bold" que o h2, mas ainda em destaque */
+    color: #212529; /* Preto suave */
+    margin-bottom: 3px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+/* Removida a classe .player-order, pois a numeração não está no design de referência */
+
+.player-confirmation-timestamp {
+    font-size: 0.8em;
+    color: #6c757d; /* Cinza para o timestamp */
+    margin-bottom: 4px;
+}
+
+.player-additional-tags {
+    display: flex;
+    flex-wrap: wrap; /* Se tiver muitas tags, elas quebram a linha */
+    gap: 6px; /* Espaçamento horizontal entre as tags */
+    align-items: center;
+}
+
+    .player-additional-tags span { /* Estilo base para todas as tags */
+        font-size: 0.75em; /* Tags pequenas */
+        padding: 2px 5px;
+        border-radius: 3px;
+        background-color: #e9ecef; /* Fundo cinza claro para tags */
+        color: #495057; /* Texto escuro para contraste */
+        white-space: nowrap;
+    }
+
+        .player-additional-tags span.tolerance-tag { /* Estilo específico para tag de tolerância */
+            background-color: #fff3cd; /* Amarelo claro */
+            color: #856404; /* Texto escuro para tag de tolerância */
+            border: 1px solid #ffeeba;
+        }
+
+            .player-additional-tags span.tolerance-tag i {
+                color: #e67e22; /* Laranja para o ícone do relógio */
+                margin-right: 3px;
+            }
+
+        .player-additional-tags span.guest-tag { /* Estilo específico para tag de convidado */
+            background-color: #e2e3e5;
+            color: #383d41;
+            font-style: italic;
+        }
+
+
+/* Ajuste no botão de remover para ficar à direita e não interferir no flex-grow dos detalhes */
+.list-section ul li .remove-button {
+    margin-left: auto; /* Empurra o botão para a extrema direita */
+    flex-shrink: 0; /* Impede que o botão encolha */
+    padding: 5px 8px; /* Botão um pouco menor para não dominar */
+    font-size: 0.8em;
+}
+/* Os estilos de cor específicos para remove-guest-btn e admin-remove-player-btn no JS podem sobrescrever o background-color aqui */
+
+/* Ajustes para Mobile (dentro das suas media queries existentes) */
+@media (max-width: 600px) {
+    .list-section ul li {
+        gap: 8px; /* Reduz o gap no mobile */
+        padding: 8px;
+    }
+
+    .player-avatar {
+        width: 40px;
+        height: 40px;
+    }
+
+        .player-avatar i.fas.fa-user-circle {
+            font-size: 1.6em;
+        }
+
+    .player-name-display {
+        font-size: 1em;
+    }
+
+    .player-confirmation-timestamp {
+        font-size: 0.75em;
+    }
+
+    .player-additional-tags span {
+        font-size: 0.7em;
+    }
+
+    .list-section li .remove-button {
+        padding: 4px 6px;
+        font-size: 0.75em;
+    }
+}
+
 
 @media (max-width: 420px) { /* Telas muito pequenas */
     .game-info-header h1 {
