@@ -332,10 +332,8 @@ auth.onAuthStateChanged(async user => {
 
         if (userInfo) userInfo.textContent = `Logado como: ${finalDisplayName || currentUser.email || "Usuário"}`;
         if (loginButton) loginButton.style.display = 'none';
-        if (logoutButton) logoutButton.style.display = 'inline-block';
-
-        // Linha que você pediu para manter como 'none' para tabsContainer após login:
-        if (tabsContainer) tabsContainer.style.display = 'none';
+        if (logoutButton) logoutButton.style.display = 'inline-block'
+        if (tabsContainer) tabsContainer.style.display = 'block';
 
         const userLoginRef = database.ref(`allUsersLogins/${currentUser.uid}`);
         userLoginRef.set({
