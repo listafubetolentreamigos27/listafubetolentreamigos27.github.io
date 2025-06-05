@@ -535,17 +535,50 @@ hr.admin-section-divider {
             background-color: #218838;
         }
 
-.error-message {
-    color: #e74c3c;
+.error-message { /* Modifique/Confirme o estilo base */
+    color: #721c24; /* Texto escuro para erro */
     text-align: center;
     margin-top: 20px;
     font-weight: bold;
     padding: 10px;
-    background-color: #fdd; /* Rosa/vermelho claro para erros */
-    border: 1px solid #fbc; /* Borda sutil para complementar */
     border-radius: 4px;
-    display: none; /* INICIALMENTE ESCONDIDO */
-    transition: opacity 0.3s ease-in-out; /* Opcional: para uma futura transição suave */
+    display: none;
+    transition: opacity 0.3s ease-in-out, background-color 0.3s ease-in-out, border-color 0.3s ease-in-out; /* Adiciona transição para cores */
+    border: 1px solid transparent; /* Borda base */
+}
+
+    .error-message.error-active { /* Para erros reais */
+        background-color: #f8d7da; /* Vermelho claro */
+        border-color: #f5c6cb;
+        color: #721c24;
+    }
+
+    .error-message.success-active { /* Para mensagens de sucesso/info */
+        background-color: #d4edda; /* Verde claro */
+        border-color: #c3e6cb;
+        color: #155724;
+    }
+
+
+#clear-penalty-list-button {
+    /* background-color: #c0392b; Já definido inline, mas pode ser aqui */
+}
+
+    #clear-penalty-list-button:hover {
+        background-color: #a03021 !important; /* Escurece o vermelho no hover */
+    }
+
+.list-section h2 i.fa-exclamation-triangle {
+    /* color: #c0392b; Já definido inline, mas pode ser aqui */
+    margin-right: 8px;
+}
+
+/* Opcional: Estilo para o indicativo "(Saída)" no timestamp */
+.player-confirmation-timestamp .penalty-removal-tag {
+    font-style: italic;
+    font-size: 0.9em;
+    margin-left: 4px;
+    color: #c0392b; /* Vermelho para destacar a saída com multa */
 }
 
 

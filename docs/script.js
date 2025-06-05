@@ -35,39 +35,43 @@ const loginButton = document.getElementById('login-button');
 const logoutButton = document.getElementById('logout-button');
 const userInfo = document.getElementById('user-info');
 const listStatusMessageElement = document.getElementById('list-status-message');
+const errorMessageElement = document.getElementById('error-message');
 
+// Abas
+const tabsContainer = document.querySelector('.tabs-container');
+const tabButtons = document.querySelectorAll('.tab-button');
+const tabContents = document.querySelectorAll('.tab-content');
+const adminTabButton = document.getElementById('admin-tab-button');
+
+// Controles de Presença
 const confirmPresenceButton = document.getElementById('confirm-presence-button');
 const isGoalkeeperCheckbox = document.getElementById('is-goalkeeper');
 const needsToleranceCheckbox = document.getElementById('needs-tolerance');
 
+// Listas de Jogadores
 const confirmedGoalkeepersListElement = document.getElementById('confirmed-goalkeepers-list');
 const confirmedFieldPlayersListElement = document.getElementById('confirmed-fieldplayers-list');
 const waitingListElement = document.getElementById('waiting-list');
+const penaltyListElement = document.getElementById('penalty-list');
 
+// Contadores das Listas
+const confirmedGkCountSpan = document.getElementById('confirmed-gk-count');
+const maxGoalkeepersDisplaySpan = document.getElementById('max-goalkeepers-display');
+const confirmedFpCountSpan = document.getElementById('confirmed-fp-count');
+const maxFieldplayersDisplaySpan = document.getElementById('max-fieldplayers-display');
+const waitingCountSpan = document.getElementById('waiting-count');
+const penaltyCountSpan = document.getElementById('penalty-count');
+
+// Controles de Convidado
 const guestNameInput = document.getElementById('guest-name');
 const guestIsGoalkeeperCheckbox = document.getElementById('guest-is-goalkeeper');
 const addGuestButton = document.getElementById('add-guest-button');
 const guestAddStatusElement = document.getElementById('guest-add-status');
 const guestFridayMessageElement = document.getElementById('guest-friday-message');
 
-
-const confirmedGkCountSpan = document.getElementById('confirmed-gk-count');
-const maxGoalkeepersDisplaySpan = document.getElementById('max-goalkeepers-display');
-const confirmedFpCountSpan = document.getElementById('confirmed-fp-count');
-const maxFieldplayersDisplaySpan = document.getElementById('max-fieldplayers-display');
-const waitingCountSpan = document.getElementById('waiting-count');
-const errorMessageElement = document.getElementById('error-message');
-
-// Referências para Abas
-const tabsContainer = document.querySelector('.tabs-container');
-const tabButtons = document.querySelectorAll('.tab-button');
-const tabContents = document.querySelectorAll('.tab-content');
-const adminTabButton = document.getElementById('admin-tab-button');
-
-// Referências do Painel Admin
+// Painel Admin
 const adminAllUsersListElement = document.getElementById('admin-all-users-list');
 const adminSearchUserInput = document.getElementById('admin-search-user');
-
 const adminOpenDaySelect = document.getElementById('admin-open-day');
 const adminOpenHourInput = document.getElementById('admin-open-hour');
 const adminOpenMinuteInput = document.getElementById('admin-open-minute');
@@ -76,6 +80,7 @@ const adminCloseHourInput = document.getElementById('admin-close-hour');
 const adminCloseMinuteInput = document.getElementById('admin-close-minute');
 const saveScheduleButton = document.getElementById('save-schedule-button');
 const scheduleSaveStatusElement = document.getElementById('schedule-save-status');
+const clearPenaltyListButton = document.getElementById('clear-penalty-list-button');
 
 // --- Estado do Usuário e Admin ---
 let currentUser = null;
@@ -84,15 +89,15 @@ let allUsersDataForAdminCache = [];
 let listStatusUpdateInterval = null;
 const LIST_STATUS_UPDATE_INTERVAL_MS = 20 * 1000;
 
-// --- Lógica da Lista de Presença (Firebase Refs) ---
+// --- Referências do Firebase ---
 const confirmedPlayersRef = database.ref('listaFutebol/jogadoresConfirmados');
 const waitingListRef = database.ref('listaFutebol/listaEspera');
+const penaltyListRef = database.ref('listaFutebol/jogadoresMultados');
 
 if (maxGoalkeepersDisplaySpan) maxGoalkeepersDisplaySpan.textContent = MAX_GOALKEEPERS;
 if (maxFieldplayersDisplaySpan) maxFieldplayersDisplaySpan.textContent = MAX_FIELD_PLAYERS;
 
-
-// --- Lógica de Horário e Fuso Horário de Brasília ---
+// --- Funções Utilitárias de Tempo ---
 function getCurrentBrasiliaDateTimeParts() {
     const nowUtc = new Date();
     const brasiliaDateString = nowUtc.toLocaleString('en-US', { timeZone: 'America/Sao_Paulo' });
@@ -105,11 +110,19 @@ function getCurrentBrasiliaDateTimeParts() {
     };
 }
 
+function formatPlayerTimestamp(timestamp) {
+    if (!timestamp) return '';
+    const date = new Date(timestamp);
+    const day = String(date.getDate()).padStart(2, '0');
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const hours = String(date.getHours()).padStart(2, '0');
+    const minutes = String(date.getMinutes()).padStart(2, '0');
+    return `${day}/${month} ${hours}:${minutes}`;
+}
+
+// --- Lógica de Abertura/Fechamento da Lista ---
 function isListCurrentlyOpen() {
-    if (!scheduleConfigLoaded) {
-        console.warn("Configurações de horário ainda não carregadas, assumindo lista fechada para checagem.");
-        return false;
-    }
+    if (!scheduleConfigLoaded) return false;
     const brasiliaTime = getCurrentBrasiliaDateTimeParts();
     const currentDay = brasiliaTime.dayOfWeek;
     const currentHour = brasiliaTime.hour;
@@ -129,7 +142,6 @@ function isListCurrentlyOpen() {
 
 function getMostRecentListOpenTimestamp() {
     if (!scheduleConfigLoaded) {
-        console.warn("getMostRecentListOpenTimestamp chamada antes das configs do Firebase serem totalmente carregadas. Usando defaults se disponíveis.");
         const tempDefaultSchedule = { openDay: 3, openHour: 19, openMinute: 0 };
         const tempNow = getCurrentBrasiliaDateTimeParts().dateObject;
         let tempOpenDate = new Date(tempNow.getTime());
@@ -141,11 +153,9 @@ function getMostRecentListOpenTimestamp() {
     }
     const nowInBrasiliaView = getCurrentBrasiliaDateTimeParts().dateObject;
     let listOpenDateTimeInBrasiliaView = new Date(nowInBrasiliaView.getTime());
-
     const dayDifference = (nowInBrasiliaView.getDay() - currentScheduleConfig.openDay + 7) % 7;
     listOpenDateTimeInBrasiliaView.setDate(nowInBrasiliaView.getDate() - dayDifference);
     listOpenDateTimeInBrasiliaView.setHours(currentScheduleConfig.openHour, currentScheduleConfig.openMinute, 0, 0);
-
     if (listOpenDateTimeInBrasiliaView.getTime() > nowInBrasiliaView.getTime()) {
         listOpenDateTimeInBrasiliaView.setDate(listOpenDateTimeInBrasiliaView.getDate() - 7);
     }
@@ -166,7 +176,6 @@ function updateListAvailabilityUI() {
         if (confirmPresenceButton) confirmPresenceButton.disabled = true;
         return;
     }
-
     const isOpen = isListCurrentlyOpen();
     if (listStatusMessageElement) {
         if (isOpen) {
@@ -193,32 +202,31 @@ function updateListAvailabilityUI() {
     }
 }
 
-function isItFridayOrSaturdayInBrasilia() {
+function isItFridayOrSaturdayInBrasilia() { // RENOMEADA E ATUALIZADA
     const brasiliaTime = getCurrentBrasiliaDateTimeParts();
-    return brasiliaTime.dayOfWeek === 5 || brasiliaTime.dayOfWeek === 6;
+    return brasiliaTime.dayOfWeek === 5 || brasiliaTime.dayOfWeek === 6; // 5 = Sexta, 6 = Sábado
 }
 
 function updateGuestAdditionAvailabilityUI() {
     const guestNameInputElem = guestNameInput;
     const guestIsGoalkeeperCheckboxElem = guestIsGoalkeeperCheckbox;
     const addGuestButtonElem = addGuestButton;
-    const guestFridayMessageElem = document.getElementById('guest-friday-message');
+    const guestDayMessageElem = guestFridayMessageElement; // Reutilizando, mas a mensagem muda
     const guestNameLabel = document.querySelector('.guest-controls .form-group label[for="guest-name"]');
     const guestIsGkGroup = document.querySelector('.guest-controls .controls .form-group-inline');
 
-
-    if (!guestNameInputElem || !guestIsGoalkeeperCheckboxElem || !addGuestButtonElem || !guestFridayMessageElem || !guestNameLabel || !guestIsGkGroup) {
+    if (!guestNameInputElem || !guestIsGoalkeeperCheckboxElem || !addGuestButtonElem || !guestDayMessageElem || !guestNameLabel || !guestIsGkGroup) {
         console.warn("Elementos da UI de convidado não encontrados para updateGuestAdditionAvailabilityUI.");
         return;
     }
 
-    const canAddGuestsToday = isItFridayOrSaturdayInBrasilia();
+    const canAddGuestsToday = isItFridayOrSaturdayInBrasilia(); // USA A NOVA FUNÇÃO
 
     if (isCurrentUserAdmin) {
         guestNameInputElem.disabled = false;
         guestIsGoalkeeperCheckboxElem.disabled = false;
         addGuestButtonElem.disabled = false;
-        guestFridayMessageElem.style.display = 'none';
+        guestDayMessageElem.style.display = 'none';
         guestNameLabel.style.display = 'block';
         guestIsGkGroup.style.display = 'flex';
         guestNameInputElem.style.display = 'block';
@@ -227,7 +235,7 @@ function updateGuestAdditionAvailabilityUI() {
         guestNameInputElem.disabled = false;
         guestIsGoalkeeperCheckboxElem.disabled = false;
         addGuestButtonElem.disabled = false;
-        guestFridayMessageElem.style.display = 'none';
+        guestDayMessageElem.style.display = 'none';
         guestNameLabel.style.display = 'block';
         guestIsGkGroup.style.display = 'flex';
         guestNameInputElem.style.display = 'block';
@@ -236,8 +244,8 @@ function updateGuestAdditionAvailabilityUI() {
         guestNameInputElem.disabled = true;
         guestIsGoalkeeperCheckboxElem.disabled = true;
         addGuestButtonElem.disabled = true;
-        guestFridayMessageElem.textContent = "Adição de convidados permitida apenas às sextas-feiras.";
-        guestFridayMessageElem.style.display = 'block';
+        guestDayMessageElem.textContent = "Adição de convidados permitida apenas às sextas e sábados."; // MENSAGEM ATUALIZADA
+        guestDayMessageElem.style.display = 'block';
     }
 }
 
@@ -260,7 +268,7 @@ function fetchScheduleSettings() {
             populateScheduleForm(currentScheduleConfig);
             checkAndPerformAdminAutoAdd();
         } else if (currentUser) {
-            // Nada específico para não-admin aqui além do que já foi feito
+            // Nada específico para não-admin aqui
         }
 
         if (listStatusUpdateInterval) clearInterval(listStatusUpdateInterval);
@@ -343,7 +351,7 @@ auth.onAuthStateChanged(async user => {
         if (loginButton) loginButton.style.display = 'none';
         if (logoutButton) logoutButton.style.display = 'inline-block';
 
-        if (tabsContainer) tabsContainer.style.display = 'block'; // REVERTIDO para 'block' conforme solicitado
+        if (tabsContainer) tabsContainer.style.display = 'block'; // REVERTIDO PARA 'block'
 
         const userLoginRef = database.ref(`allUsersLogins/${currentUser.uid}`);
         userLoginRef.set({
@@ -363,6 +371,8 @@ auth.onAuthStateChanged(async user => {
             if (adminTabButton) {
                 adminTabButton.style.display = isCurrentUserAdmin ? 'inline-block' : 'none';
             }
+            if (clearPenaltyListButton) clearPenaltyListButton.style.display = isCurrentUserAdmin ? 'inline-flex' : 'none';
+
 
             if (isCurrentUserAdmin) {
                 loadAndRenderAllUsersListForAdmin();
@@ -390,6 +400,7 @@ auth.onAuthStateChanged(async user => {
             console.error("Erro ao verificar admin:", error);
             isCurrentUserAdmin = false;
             if (adminTabButton) adminTabButton.style.display = 'none';
+            if (clearPenaltyListButton) clearPenaltyListButton.style.display = 'none';
             updateGuestAdditionAvailabilityUI();
             loadLists();
             if (scheduleConfigLoaded) updateListAvailabilityUI();
@@ -404,6 +415,7 @@ auth.onAuthStateChanged(async user => {
         if (logoutButton) logoutButton.style.display = 'none';
         if (tabsContainer) tabsContainer.style.display = 'none';
         if (adminTabButton) adminTabButton.style.display = 'none';
+        if (clearPenaltyListButton) clearPenaltyListButton.style.display = 'none';
 
         if (listStatusMessageElement) {
             if (scheduleConfigLoaded) updateListAvailabilityUI();
@@ -423,14 +435,14 @@ loginButton.addEventListener('click', () => {
     const provider = new firebase.auth.GoogleAuthProvider();
     auth.signInWithPopup(provider).catch(error => {
         console.error("Erro no login:", error);
-        displayErrorMessage("Falha no login. Tente novamente.");
+        displayErrorMessage("Falha no login. Tente novamente.", true);
     });
 });
 
 logoutButton.addEventListener('click', () => {
     auth.signOut().catch(error => {
         console.error("Erro no logout:", error);
-        displayErrorMessage("Falha ao deslogar.");
+        displayErrorMessage("Falha ao deslogar.", true);
     });
 });
 
@@ -525,7 +537,7 @@ async function checkAndPerformAdminAutoAdd() {
                 }
             }
 
-            if (adminsAddedCount > 0) displayErrorMessage(`${adminsAddedCount} administrador(es) adicionado(s) automaticamente.`);
+            if (adminsAddedCount > 0) displayErrorMessage(`${adminsAddedCount} administrador(es) adicionado(s) automaticamente.`, false);
             else if (adminUids.length > 0) console.log("Admins para auto-add já na lista ou sem vagas.");
 
             await scheduleStateRef.set(currentCycleTimestamp);
@@ -534,30 +546,32 @@ async function checkAndPerformAdminAutoAdd() {
         }
     } catch (error) {
         console.error("Erro na adição automática de admins:", error);
-        displayErrorMessage("Erro ao adicionar admins automaticamente.");
+        displayErrorMessage("Erro ao adicionar admins automaticamente.", true);
     }
 }
 
-function displayErrorMessage(message) {
+function displayErrorMessage(message, isError = true, duration = 5000) {
     if (errorMessageElement) {
         errorMessageElement.textContent = message;
         errorMessageElement.style.display = 'block';
+        errorMessageElement.className = `error-message ${isError ? 'error-active' : 'success-active'}`;
         setTimeout(() => {
             if (errorMessageElement) {
                 errorMessageElement.textContent = '';
                 errorMessageElement.style.display = 'none';
+                errorMessageElement.className = 'error-message';
             }
-        }, 5000);
+        }, duration);
     }
 }
 
 confirmPresenceButton.addEventListener('click', () => {
     if (!currentUser) {
-        displayErrorMessage("Você precisa estar logado para confirmar presença.");
+        displayErrorMessage("Você precisa estar logado para confirmar presença.", true);
         return;
     }
     if (!isCurrentUserAdmin && !isListCurrentlyOpen()) {
-        displayErrorMessage("A lista de presença não está aberta no momento.");
+        displayErrorMessage("A lista de presença não está aberta no momento.", true);
         return;
     }
 
@@ -568,7 +582,7 @@ confirmPresenceButton.addEventListener('click', () => {
     const playerPhotoURLForTransaction = (currentUser && currentUser.photoURL) ? currentUser.photoURL : null;
 
     const listaFutebolRef = database.ref('listaFutebol');
-    displayErrorMessage("Processando sua confirmação...");
+    displayErrorMessage("Processando sua confirmação...", false, 2000); // Mensagem de processando
 
     listaFutebolRef.transaction((currentListaFutebolData) => {
         if (currentListaFutebolData === null) {
@@ -623,15 +637,15 @@ confirmPresenceButton.addEventListener('click', () => {
     }, (error, committed, snapshot) => {
         if (error) {
             console.error("Falha na transação:", error);
-            displayErrorMessage("Erro ao processar sua confirmação. Tente novamente.");
+            displayErrorMessage("Erro ao processar sua confirmação. Tente novamente.", true);
         } else if (!committed) {
             console.log("Transação não efetivada.");
             database.ref(`listaFutebol/jogadoresConfirmados/${playerIdForTransaction}`).once('value', sConfirm => {
                 database.ref(`listaFutebol/listaEspera/${playerIdForTransaction}`).once('value', sWait => {
                     if (sConfirm.exists() || sWait.exists()) {
-                        displayErrorMessage("Você já está na lista ou na espera (verificado no servidor).");
+                        displayErrorMessage("Você já está na lista ou na espera (verificado no servidor).", true);
                     } else {
-                        displayErrorMessage("Não foi possível confirmar. Vagas podem ter sido preenchidas ou houve um conflito.");
+                        displayErrorMessage("Não foi possível confirmar. Vagas podem ter sido preenchidas ou houve um conflito.", true);
                     }
                 });
             });
@@ -640,12 +654,12 @@ confirmPresenceButton.addEventListener('click', () => {
             const dataCommitted = snapshot.val();
             if (dataCommitted && dataCommitted.jogadoresConfirmados && dataCommitted.jogadoresConfirmados[playerIdForTransaction]) {
                 const p = dataCommitted.jogadoresConfirmados[playerIdForTransaction];
-                displayErrorMessage(`${p.name}, presença ${p.isGoalkeeper ? 'como goleiro(a)' : ''} confirmada!`);
+                displayErrorMessage(`${p.name}, presença ${p.isGoalkeeper ? 'como goleiro(a)' : ''} confirmada!`, false);
             } else if (dataCommitted && dataCommitted.listaEspera && dataCommitted.listaEspera[playerIdForTransaction]) {
                 const p = dataCommitted.listaEspera[playerIdForTransaction];
-                displayErrorMessage(`${p.name}, você foi adicionado(a) à lista de espera.`);
+                displayErrorMessage(`${p.name}, você foi adicionado(a) à lista de espera.`, false);
             } else {
-                displayErrorMessage("Sua solicitação foi processada com sucesso!");
+                displayErrorMessage("Sua solicitação foi processada com sucesso!", false);
             }
         }
         if (isGoalkeeperCheckbox) isGoalkeeperCheckbox.checked = false;
@@ -677,7 +691,7 @@ if (addGuestButton) {
             return;
         }
         if (!isCurrentUserAdmin && !isItFridayOrSaturdayInBrasilia()) {
-            displayGuestAddStatus("Convidados só podem ser adicionados às sextas-feiras por não-administradores.", true);
+            displayGuestAddStatus("Convidados só podem ser adicionados às sextas e sábados.", true);
             return;
         }
 
@@ -792,31 +806,63 @@ async function addToWaitingList(playerId, playerName, isGoalkeeper, dataToSet = 
         if (dataToSet && typeof dataToSet.needsTolerance !== 'undefined' && !waitingData.hasOwnProperty('needsTolerance')) {
             waitingData.needsTolerance = dataToSet.needsTolerance;
         }
-
         await waitingListRef.child(playerId).set(waitingData);
     } catch (error) {
         console.error("Erro ao adicionar à lista de espera:", error);
-        displayErrorMessage("Erro ao entrar na lista de espera.");
+        displayErrorMessage("Erro ao entrar na lista de espera.", true);
     }
 }
 
 async function removePlayer(playerId, listType) {
     if (!currentUser) {
-        displayErrorMessage("Você precisa estar logado para esta ação.");
+        displayErrorMessage("Você precisa estar logado para esta ação.", true);
         return;
     }
     try {
+        let playerDataForPenalty = null;
+        // Captura os dados ANTES de remover, se for da lista de confirmados
+        if (listType === 'confirmed') {
+            const playerSnapshot = await confirmedPlayersRef.child(playerId).once('value');
+            playerDataForPenalty = playerSnapshot.val();
+        }
+
         if (listType === 'confirmed') {
             await confirmedPlayersRef.child(playerId).remove();
-            displayErrorMessage("Jogador removido da lista principal.");
+            displayErrorMessage("Jogador removido da lista principal.", false);
+
+            // Lógica de Multa
+            if (playerDataForPenalty && !playerDataForPenalty.isGuest) { // Não multar convidados
+                const brasiliaTime = getCurrentBrasiliaDateTimeParts();
+                const isSaturday = brasiliaTime.dayOfWeek === 6; // Sábado
+                const isAfterPenaltyTime = brasiliaTime.hour >= 13; // 13:00 ou depois
+
+                if (isSaturday && isAfterPenaltyTime) {
+                    const penaltyEntry = {
+                        name: playerDataForPenalty.name,
+                        photoURL: playerDataForPenalty.photoURL || null,
+                        originalConfirmationTimestamp: playerDataForPenalty.timestamp,
+                        isGoalkeeper: playerDataForPenalty.isGoalkeeper || false,
+                        needsTolerance: playerDataForPenalty.needsTolerance || false,
+                        removalTimestamp: firebase.database.ServerValue.TIMESTAMP,
+                        removedByUid: currentUser.uid, // Quem efetivamente clicou em remover
+                        removedByName: currentUser.displayName || "Usuário Anônimo"
+                    };
+                    // Usar um ID único para a entrada na lista de multas para evitar sobrescrita se o mesmo jogador sair várias vezes
+                    const penaltyEntryId = playerId + "_" + Date.now(); // Ou usar Firebase push().key
+                    await penaltyListRef.child(penaltyEntryId).set(penaltyEntry);
+                    console.log(`Jogador ${playerDataForPenalty.name} adicionado à lista de multas.`);
+                    displayErrorMessage(`${playerDataForPenalty.name} foi para a lista de multas (saída tardia).`, false, 7000);
+                }
+            }
             await checkWaitingListAndPromote();
+
         } else if (listType === 'waiting') {
             await waitingListRef.child(playerId).remove();
-            displayErrorMessage("Jogador removido da lista de espera.");
+            displayErrorMessage("Jogador removido da lista de espera.", false);
         }
     } catch (error) {
         console.error(`Erro ao remover jogador da lista ${listType}:`, error);
-        displayErrorMessage("Erro ao remover da lista.");
+        displayErrorMessage("Erro ao remover da lista.", true);
     }
 }
 
@@ -861,18 +907,8 @@ async function checkWaitingListAndPromote() {
         }
     } catch (error) {
         console.error("Erro ao promover jogador:", error);
-        displayErrorMessage("Erro ao tentar promover jogador da espera.");
+        displayErrorMessage("Erro ao tentar promover jogador da espera.", true);
     }
-}
-
-function formatPlayerTimestamp(timestamp) {
-    if (!timestamp) return '';
-    const date = new Date(timestamp);
-    const day = String(date.getDate()).padStart(2, '0');
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const hours = String(date.getHours()).padStart(2, '0');
-    const minutes = String(date.getMinutes()).padStart(2, '0');
-    return `${day}/${month} ${hours}:${minutes}`;
 }
 
 function renderPlayerListItem(player, index, listTypeIdentifier) {
@@ -902,14 +938,21 @@ function renderPlayerListItem(player, index, listTypeIdentifier) {
 
     const nameMain = document.createElement('div');
     nameMain.classList.add('player-name-display');
-    // Adicionando a numeração ao nome
+    // Adicionando a numeração ao nome (REINSERIDO)
     nameMain.textContent = `${index + 1}. ${player.name || 'Nome Indisponível'}`;
     detailsContainer.appendChild(nameMain);
 
-    if (player.timestamp) {
+    const displayTimestamp = player.removalTimestamp || player.timestamp;
+    if (displayTimestamp) {
         const timestampElem = document.createElement('div');
         timestampElem.classList.add('player-confirmation-timestamp');
-        timestampElem.textContent = formatPlayerTimestamp(player.timestamp);
+        timestampElem.textContent = formatPlayerTimestamp(displayTimestamp);
+        if (player.removalTimestamp && listTypeIdentifier === 'penalty') {
+            const removalTag = document.createElement('span');
+            removalTag.classList.add('penalty-removal-tag');
+            removalTag.textContent = "(Saída)";
+            timestampElem.appendChild(removalTag);
+        }
         detailsContainer.appendChild(timestampElem);
     }
 
@@ -930,12 +973,19 @@ function renderPlayerListItem(player, index, listTypeIdentifier) {
         toleranceIndicator.title = "Precisa de 10 minutos de tolerância";
         extraTagsContainer.appendChild(toleranceIndicator);
     }
-    if (player.isGuest && player.addedByName) {
+    if (player.isGuest && player.addedByName && listTypeIdentifier !== 'penalty') {
         const guestIndicator = document.createElement('span');
         guestIndicator.classList.add('guest-tag');
         guestIndicator.textContent = `(Convidado por: ${player.addedByName})`;
         extraTagsContainer.appendChild(guestIndicator);
     }
+    if (player.removedByName && listTypeIdentifier === 'penalty') {
+        const removedByIndicator = document.createElement('span');
+        removedByIndicator.classList.add('guest-tag');
+        removedByIndicator.textContent = player.removedByUid === player.id ? `(Saiu por conta própria)` : `(Removido por: ${player.removedByName})`;
+        extraTagsContainer.appendChild(removedByIndicator);
+    }
+
     if (extraTagsContainer.hasChildNodes()) {
         detailsContainer.appendChild(extraTagsContainer);
     }
@@ -947,7 +997,7 @@ function renderPlayerListItem(player, index, listTypeIdentifier) {
     let buttonIcon = "fas fa-sign-out-alt";
     let buttonSpecificClass = "";
 
-    if (currentUser) {
+    if (currentUser && listTypeIdentifier !== 'penalty') {
         if (player.isGuest) {
             if (isCurrentUserAdmin || (player.addedByUid && player.addedByUid === currentUser.uid)) {
                 showRemoveButton = true;
@@ -962,7 +1012,7 @@ function renderPlayerListItem(player, index, listTypeIdentifier) {
                     buttonText = "";
                     buttonIcon = "fas fa-user-times";
                     buttonSpecificClass = "admin-remove-player-btn";
-                } else { // Auto-remoção
+                } else {
                     buttonText = "";
                 }
             }
@@ -971,11 +1021,10 @@ function renderPlayerListItem(player, index, listTypeIdentifier) {
 
     if (showRemoveButton) {
         const removeBtn = document.createElement('button');
-        removeBtn.classList.add('remove-button'); // Classe base
+        removeBtn.classList.add('remove-button');
         if (buttonSpecificClass) removeBtn.classList.add(buttonSpecificClass);
 
         removeBtn.innerHTML = `<i class="${buttonIcon}"></i>`;
-        // O texto do botão foi removido para um visual mais limpo, mas o title permanece
         removeBtn.title = (buttonIcon === "fas fa-sign-out-alt") ? "Sair da lista" : "Remover";
 
         if (buttonSpecificClass === "admin-remove-player-btn") {
@@ -1044,13 +1093,32 @@ function renderWaitingList(waitingPlayersObject) {
     if (waitingCountSpan) waitingCountSpan.textContent = waitingArray.length;
 }
 
+function renderPenaltyList(penaltyPlayersObject) {
+    if (penaltyListElement) penaltyListElement.innerHTML = '';
+    if (!penaltyPlayersObject) {
+        if (penaltyCountSpan) penaltyCountSpan.textContent = 0;
+        return;
+    }
+
+    const penaltyArray = Object.entries(penaltyPlayersObject)
+        .map(([id, data]) => ({ id, ...data }))
+        .sort((a, b) => (b.removalTimestamp || 0) - (a.removalTimestamp || 0));
+
+    penaltyArray.forEach((player, index) => {
+        if (penaltyListElement) penaltyListElement.appendChild(renderPlayerListItem(player, index, 'penalty'));
+    });
+    if (penaltyCountSpan) penaltyCountSpan.textContent = penaltyArray.length;
+}
+
 function clearListsUI() {
     if (confirmedGoalkeepersListElement) confirmedGoalkeepersListElement.innerHTML = '';
     if (confirmedFieldPlayersListElement) confirmedFieldPlayersListElement.innerHTML = '';
     if (waitingListElement) waitingListElement.innerHTML = '';
+    if (penaltyListElement) penaltyListElement.innerHTML = '';
     if (confirmedGkCountSpan) confirmedGkCountSpan.textContent = '0';
     if (confirmedFpCountSpan) confirmedFpCountSpan.textContent = '0';
     if (waitingCountSpan) waitingCountSpan.textContent = '0';
+    if (penaltyCountSpan) penaltyCountSpan.textContent = '0';
     if (listStatusMessageElement) listStatusMessageElement.textContent = '';
 }
 
@@ -1092,7 +1160,7 @@ function renderAdminUserListItemForPanel(user, isConfirmed, isInWaitingList) {
         gkLabel.htmlFor = isGoalkeeperCheckboxForAdmin.id;
 
         const needsToleranceLabelForAdmin = document.createElement('label');
-        needsToleranceLabelForAdmin.textContent = 'Tolerância? '; // Ajustado
+        needsToleranceLabelForAdmin.textContent = 'Tolerância? ';
         needsToleranceLabelForAdmin.style.marginRight = '5px';
         needsToleranceLabelForAdmin.style.fontSize = '0.9em';
 
@@ -1126,10 +1194,10 @@ function renderAdminUserListItemForPanel(user, isConfirmed, isInWaitingList) {
 
 async function adminAddPlayerToGame(playerId, playerName, isPlayerGoalkeeper, isPlayerNeedsTolerance) {
     if (!isCurrentUserAdmin) {
-        displayErrorMessage("Ação restrita a administradores.");
+        displayErrorMessage("Ação restrita a administradores.", true);
         return;
     }
-    displayErrorMessage(`Adicionando ${playerName}...`);
+    displayErrorMessage(`Adicionando ${playerName}...`, false, 2000);
     try {
         const confirmedSnapshot = await confirmedPlayersRef.once('value');
         const confirmedData = confirmedSnapshot.val() || {};
@@ -1137,7 +1205,7 @@ async function adminAddPlayerToGame(playerId, playerName, isPlayerGoalkeeper, is
         const waitingData = waitingSnapshot.val() || {};
 
         if (confirmedData[playerId] || waitingData[playerId]) {
-            displayErrorMessage(`${playerName} já está em uma das listas.`);
+            displayErrorMessage(`${playerName} já está em uma das listas.`, true);
             if (isCurrentUserAdmin && document.getElementById('tab-admin-panel')?.classList.contains('active')) {
                 filterAndRenderAdminUserList(adminSearchUserInput ? adminSearchUserInput.value : "");
             }
@@ -1163,23 +1231,23 @@ async function adminAddPlayerToGame(playerId, playerName, isPlayerGoalkeeper, is
         if (isPlayerGoalkeeper) {
             if (numGkConfirmed < MAX_GOALKEEPERS) {
                 await confirmedPlayersRef.child(playerId).set(playerData);
-                displayErrorMessage(`${playerName} (G) adicionado aos Confirmados.`);
+                displayErrorMessage(`${playerName} (G) adicionado aos Confirmados.`, false);
             } else {
                 await waitingListRef.child(playerId).set(playerData);
-                displayErrorMessage(`Limite de Goleiros atingido. ${playerName} (G) adicionado à Espera.`);
+                displayErrorMessage(`Limite de Goleiros atingido. ${playerName} (G) adicionado à Espera.`, false);
             }
         } else {
             if (numFpConfirmed < MAX_FIELD_PLAYERS) {
                 await confirmedPlayersRef.child(playerId).set(playerData);
-                displayErrorMessage(`${playerName} adicionado aos Confirmados.`);
+                displayErrorMessage(`${playerName} adicionado aos Confirmados.`, false);
             } else {
                 await waitingListRef.child(playerId).set(playerData);
-                displayErrorMessage(`Limite de Jogadores de Linha atingido. ${playerName} adicionado à Espera.`);
+                displayErrorMessage(`Limite de Jogadores de Linha atingido. ${playerName} adicionado à Espera.`, false);
             }
         }
     } catch (error) {
         console.error("Erro do Admin ao adicionar jogador:", error);
-        displayErrorMessage("Falha ao adicionar jogador. Verifique o console.");
+        displayErrorMessage("Falha ao adicionar jogador. Verifique o console.", true);
     }
 }
 
@@ -1268,7 +1336,7 @@ function loadLists() {
             }
         }, error => {
             console.error("Erro ao carregar lista de confirmados:", error);
-            if (displayErrorMessage) displayErrorMessage("Não foi possível carregar a lista de confirmados.");
+            if (displayErrorMessage) displayErrorMessage("Não foi possível carregar a lista de confirmados.", true);
         });
     }
 
@@ -1283,7 +1351,17 @@ function loadLists() {
             }
         }, error => {
             console.error("Erro ao carregar lista de espera:", error);
-            if (displayErrorMessage) displayErrorMessage("Não foi possível carregar a lista de espera.");
+            if (displayErrorMessage) displayErrorMessage("Não foi possível carregar a lista de espera.", true);
+        });
+    }
+    // Listener para a lista de multas
+    if (penaltyListRef) {
+        penaltyListRef.on('value', snapshot => {
+            const players = snapshot.val();
+            renderPenaltyList(players);
+        }, error => {
+            console.error("Erro ao carregar lista de multas:", error);
+            displayErrorMessage("Não foi possível carregar a lista de multas.", true);
         });
     }
 }
@@ -1291,7 +1369,7 @@ function loadLists() {
 if (saveScheduleButton) {
     saveScheduleButton.addEventListener('click', async () => {
         if (!isCurrentUserAdmin) {
-            displayErrorMessage("Apenas administradores podem salvar horários.");
+            displayErrorMessage("Apenas administradores podem salvar horários.", true);
             return;
         }
         const newSchedule = {
@@ -1344,6 +1422,28 @@ if (saveScheduleButton) {
         setTimeout(() => { if (scheduleSaveStatusElement) { scheduleSaveStatusElement.textContent = ''; scheduleSaveStatusElement.classList.remove('visible', 'success', 'error', 'neutral'); } }, 3000);
     });
 }
+
+if (clearPenaltyListButton) {
+    clearPenaltyListButton.addEventListener('click', async () => {
+        if (!isCurrentUserAdmin) {
+            displayErrorMessage("Apenas administradores podem limpar esta lista.", true);
+            return;
+        }
+        // Usar um modal customizado em vez de confirm()
+        // Por agora, vamos simular o confirm com um log e prosseguir
+        console.log("Tentativa de limpar lista de multas. Implementar modal de confirmação.");
+        // if (confirm("Tem certeza que deseja LIMPAR TODA a lista de jogadores multados? Esta ação não pode ser desfeita.")) {
+        try {
+            await penaltyListRef.remove();
+            displayErrorMessage("Lista de multas limpa com sucesso!", false);
+        } catch (error) {
+            console.error("Erro ao limpar lista de multas:", error);
+            displayErrorMessage("Falha ao limpar a lista de multas.", true);
+        }
+        // }
+    });
+}
+
 
 if (adminSearchUserInput) {
     adminSearchUserInput.addEventListener('input', (e) => {
