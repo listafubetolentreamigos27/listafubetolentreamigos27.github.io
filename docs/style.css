@@ -3,7 +3,7 @@ body {
     background-color: #f4f4f4;
     color: #333;
     margin: 0;
-    padding: 10px;
+    padding: 10px; /* Reduzido para dar mais espaço em telas pequenas */
     display: flex;
     justify-content: center;
     align-items: flex-start;
@@ -17,7 +17,7 @@ body {
     border-radius: 8px;
     box-shadow: 0 0 15px rgba(0,0,0,0.1);
     width: 100%;
-    max-width: 700px;
+    max-width: 700px; /* Um pouco mais de largura máxima se desejar */
     box-sizing: border-box;
 }
 
@@ -84,7 +84,7 @@ body {
     color: #2980b9;
     text-decoration: none;
     font-weight: bold;
-    word-break: break-all;
+    word-break: break-all; /* Para URLs longas não quebrarem o layout */
 }
 
     .payment-info a:hover, .external-links a:hover {
@@ -102,6 +102,7 @@ body {
         margin: 8px 0;
         text-align: center;
     }
+
 
 /* Contêiner de Autenticação */
 #auth-container {
@@ -128,9 +129,6 @@ button {
     font-size: 1em;
     transition: background-color 0.3s ease;
     margin: 5px;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
 }
 
     button:hover {
@@ -147,8 +145,8 @@ button {
 
 button i.fab,
 button i.fas,
-button i.far {
-    margin-right: 7px;
+button i.far { /* Seleciona os ícones Font Awesome dentro de botões */
+    margin-right: 7px; /* Ajuste o valor conforme necessário */
 }
 
 /* --- Estilos para Abas --- */
@@ -164,8 +162,8 @@ button i.far {
     display: flex;
     background-color: #f8f9fa;
     border-bottom: 1px solid #ddd;
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
+    overflow-x: auto; /* Permite scroll horizontal nos botões de aba se não couberem */
+    -webkit-overflow-scrolling: touch; /* Melhora scroll em iOS */
 }
 
 .tab-button {
@@ -177,8 +175,8 @@ button i.far {
     color: #495057;
     border-right: 1px solid #ddd;
     transition: background-color 0.3s ease, color 0.3s ease;
-    white-space: nowrap;
-    flex-shrink: 0;
+    white-space: nowrap; /* Evita quebra de linha no texto do botão */
+    flex-shrink: 0; /* Impede que botões encolham demais */
 }
 
     .tab-button:last-child {
@@ -192,9 +190,10 @@ button i.far {
     .tab-button.active {
         background-color: #fff;
         color: #007bff;
-        border-bottom: 3px solid #007bff;
+        border-bottom: 3px solid #007bff; /* Borda mais grossa para destaque */
         font-weight: bold;
         position: relative;
+        /* top: 1px; /* Removido para simplificar, a borda inferior já faz o efeito */
     }
 
 .tab-content {
@@ -206,68 +205,42 @@ button i.far {
     .tab-content.active {
         display: block;
     }
+
     /* Controles dentro da Aba de Listas de Jogo */
     .tab-content .controls {
         margin-bottom: 25px;
         display: flex;
         align-items: center;
-        gap: 15px;
-        flex-wrap: wrap;
+        gap: 15px; /* Espaço entre label/checkbox e botão */
+        flex-wrap: wrap; /* Permite quebra de linha se não couber */
     }
 
         .tab-content .controls label {
             font-size: 0.95em;
-            display: flex;
             align-items: center;
-            cursor: pointer;
         }
 
-.form-group-inline {
-    display: flex;
-    align-items: center;
-    gap: 6px;
+#is-goalkeeper {
+    margin-left: 10px;
+    transform: scale(1.3); /* Checkbox um pouco maior */
+    vertical-align: bottom;
 }
-
-    .form-group-inline input[type="checkbox"] {
-        width: auto;
-        margin-right: 0;
-        transform: scale(1.1);
-        cursor: pointer;
-    }
-
-    .form-group-inline label i.far.fa-clock {
-        margin-right: 4px;
-        color: #007bff;
-    }
-
-#is-goalkeeper,
 #needs-tolerance {
-    margin-left: 5px;
-    transform: scale(1.1);
+    margin-left: 10px;
+    transform: scale(1.3); /* Checkbox um pouco maior */
+    vertical-align: bottom;
 }
 
 #confirm-presence-button {
-    padding: 10px 20px;
+    padding: 10px 20px; /* Padding generoso para toque */
     font-size: 1em;
 }
 
-/* Estilo para o indicador de tolerância na lista de jogadores */
-.tolerance-tag {
-    margin-left: 8px;
-    color: #e67e22;
-    font-style: normal;
-    white-space: nowrap;
+.tolerance-tag .tolerance-text {
+    font-size: 0.8em; /* Um pouco menor */
+    margin-left: 3px;
+    font-style: italic;
 }
-
-    .tolerance-tag i {
-        /* font-size: 0.9em;  */
-    }
-
-    .tolerance-tag .tolerance-text {
-        font-size: 0.8em;
-        margin-left: 3px;
-        font-style: italic;
-    }
 
 /* Seções de Lista (Geral) */
 .list-section {
@@ -282,7 +255,7 @@ button i.far {
         color: #2c3e50;
         border-bottom: 2px solid #3498db;
         padding-bottom: 8px;
-        margin-top: 0;
+        margin-top: 0; /* Remove margem superior do h2 dentro da tab */
         margin-bottom: 15px;
         font-size: 1.3em;
     }
@@ -291,90 +264,36 @@ button i.far {
         list-style-type: none;
         padding: 0;
     }
-        /* Estilo para cada item da lista (jogador) - LAYOUT WHATSAPP */
+
         .list-section ul li {
-            background-color: #fff;
-            padding: 10px;
+            background-color: #ecf0f1;
+            padding: 10px 12px;
             margin-bottom: 8px;
-            border-radius: 6px;
+            border-radius: 4px;
             display: flex;
+            justify-content: space-between;
             align-items: center;
-            border: 1px solid #e0e0e0;
-            gap: 12px;
+            line-height: 1.4;
         }
 
-/* Estilos para Avatar do Jogador */
-.player-avatar-container {
-    flex-shrink: 0;
+
+.list-section li .player-order {
+    font-weight: normal;
+    color: #555;
+    flex-shrink: 0; /* Não encolhe o número */
 }
 
-.player-avatar {
-    width: 45px;
-    height: 45px;
-    border-radius: 50%;
-    object-fit: cover;
-    background-color: #e0e0e0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: #777;
-    font-size: 1.5em;
-    overflow: hidden;
-}
-
-    .player-avatar img {
-        width: 100%;
-        height: 100%;
-        object-fit: cover;
-    }
-
-    .player-avatar i {
-        /* O tamanho já está sendo controlado pelo font-size do container */
-    }
-
-/* Estilos para Detalhes do Jogador (Nome, Timestamp, Tags) */
-.player-details-container {
-    flex-grow: 1;
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    overflow: hidden;
-}
-
-.player-name-main {
+.list-section li .player-name {
     font-weight: bold;
-    color: #333;
-    font-size: 1.05em;
-    margin-bottom: 2px;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    color: #2c3e50;
 }
 
-    .player-name-main .player-order {
-        font-weight: normal;
-        color: #555;
-        margin-right: 4px;
-    }
-
-.player-timestamp {
-    font-size: 0.8em;
-    color: #666;
-    margin-bottom: 3px;
+.list-section li .player-info {
+    font-size: 0.85em;
+    color: #7f8c8d;
+    margin-left: 4px;
+    white-space: nowrap; /* Evita que "(Goleiro)" quebre */
 }
-
-.player-extra-tags {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 6px;
-    align-items: center;
-}
-
-    .player-extra-tags span {
-        font-size: 0.8em;
-        color: #7f8c8d;
-        white-space: nowrap;
-    }
 
 .list-section li .remove-button {
     background-color: #e74c3c;
@@ -384,16 +303,16 @@ button i.far {
     border-radius: 4px;
     cursor: pointer;
     font-size: 0.85em;
-    margin-left: auto;
+    margin-left: auto; /* Garante que o botão fique à direita mesmo se o texto for curto */
     white-space: nowrap;
-    flex-shrink: 0;
+    flex-shrink: 0; /* Não encolhe o botão */
 }
 
     .list-section li .remove-button:hover {
         background-color: #c0392b;
     }
 
-/* Estilos para o Conteúdo do Painel do Admin */
+/* Estilos para o Conteúdo do Painel do Admin (dentro da aba) */
 .admin-panel-content {
     border-radius: 6px;
 }
@@ -447,7 +366,7 @@ button i.far {
 
 .admin-user-info {
     flex-grow: 1;
-    margin-right: 10px;
+    margin-right: 10px; /* Espaço antes das ações */
     overflow-wrap: break-word;
     word-break: break-word;
 }
@@ -463,36 +382,36 @@ button i.far {
     }
 
 .config-section {
-    background-color: #fff;
+    background-color: #fff; /* Fundo branco para seções dentro do painel */
     padding: 20px;
     margin-bottom: 25px;
     border-radius: 6px;
-    border: 1px solid #e0e0e0;
+    border: 1px solid #e0e0e0; /* Borda sutil */
 }
 
     .config-section h4 {
         margin-top: 0;
         margin-bottom: 18px;
-        color: #337ab7;
+        color: #337ab7; /* Azul similar aos títulos de seção */
         font-size: 1.2em;
         border-bottom: 1px solid #eee;
         padding-bottom: 10px;
     }
 
-        .config-section h4 i {
+        .config-section h4 i { /* Ícone no título da seção */
             margin-right: 8px;
         }
 
 .schedule-form-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-    gap: 15px 20px;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); /* Colunas responsivas */
+    gap: 15px 20px; /* Espaçamento entre linhas e colunas */
     margin-bottom: 20px;
 }
 
 .form-group {
     display: flex;
-    flex-direction: column;
+    flex-direction: column; /* Labels acima dos inputs */
 }
 
     .form-group label {
@@ -508,8 +427,8 @@ button i.far {
         border: 1px solid #ccc;
         border-radius: 4px;
         font-size: 1em;
-        box-sizing: border-box;
-        width: 100%;
+        box-sizing: border-box; /* Para padding não aumentar a largura total */
+        width: 100%; /* Ocupa toda a largura do container do grid */
     }
 
     .form-group small {
@@ -518,8 +437,8 @@ button i.far {
         margin-top: 4px;
     }
 
-.admin-action-button {
-    background-color: #007bff;
+.admin-action-button { /* Estilo para botões de ação principais do admin */
+    background-color: #007bff; /* Azul primário */
     color: white;
     padding: 10px 18px;
     font-size: 1em;
@@ -537,18 +456,13 @@ button i.far {
         margin-right: 8px;
     }
 
-.status-feedback {
+.status-feedback { /* Para mensagens de salvar horário */
     margin-top: 10px;
     padding: 8px;
     border-radius: 4px;
     font-size: 0.9em;
     text-align: center;
-    display: none;
 }
-
-    .status-feedback.visible {
-        display: block !important;
-    }
 
     .status-feedback.success {
         background-color: #d4edda;
@@ -560,12 +474,6 @@ button i.far {
         background-color: #f8d7da;
         color: #721c24;
         border: 1px solid #f5c6cb;
-    }
-
-    .status-feedback.neutral {
-        background-color: #e9ecef;
-        color: #495057;
-        border: 1px solid #ced4da;
     }
 
 hr.admin-section-divider {
@@ -598,7 +506,7 @@ hr.admin-section-divider {
     display: flex;
     align-items: center;
     white-space: nowrap;
-    flex-shrink: 0;
+    flex-shrink: 0; /* Não encolhe o container de ações */
 }
 
     .admin-user-item-actions label {
@@ -608,8 +516,8 @@ hr.admin-section-divider {
     }
 
     .admin-user-item-actions .admin-add-gk-checkbox {
-        margin-right: 8px;
-        transform: scale(1.1);
+        margin-right: 8px; /* Espaço depois do checkbox */
+        transform: scale(1.4);
         vertical-align: middle;
     }
 
@@ -633,12 +541,13 @@ hr.admin-section-divider {
     margin-top: 20px;
     font-weight: bold;
     padding: 10px;
-    background-color: #fdd;
-    border: 1px solid #fbc;
+    background-color: #fdd; /* Rosa/vermelho claro para erros */
+    border: 1px solid #fbc; /* Borda sutil para complementar */
     border-radius: 4px;
-    display: none;
-    transition: opacity 0.3s ease-in-out;
+    display: none; /* INICIALMENTE ESCONDIDO */
+    transition: opacity 0.3s ease-in-out; /* Opcional: para uma futura transição suave */
 }
+
 
 .list-status {
     padding: 10px;
@@ -650,21 +559,15 @@ hr.admin-section-divider {
 }
 
     .list-status.open {
-        background-color: #d4edda;
-        color: #155724;
+        background-color: #d4edda; /* Verde claro */
+        color: #155724; /* Verde escuro */
         border: 1px solid #c3e6cb;
     }
 
     .list-status.closed {
-        background-color: #f8d7da;
-        color: #721c24;
+        background-color: #f8d7da; /* Vermelho claro */
+        color: #721c24; /* Vermelho escuro */
         border: 1px solid #f5c6cb;
-    }
-
-    .list-status.neutral {
-        background-color: #e9ecef;
-        color: #495057;
-        border: 1px solid #ced4da;
     }
 
 hr.section-divider {
@@ -680,7 +583,6 @@ hr.section-divider {
     border: 1px solid #eee;
     margin-bottom: 25px;
     border-radius: 6px;
-    background-color: #f9f9f9;
 }
 
     .guest-controls h4 {
@@ -695,12 +597,13 @@ hr.section-divider {
             color: #007bff;
         }
 
+    /* Reutilizando .form-group já definido para o painel admin, ou defina especificamente se necessário */
     .guest-controls .form-group {
         margin-bottom: 15px;
     }
 
         .guest-controls .form-group label {
-            display: block;
+            display: block; /* Garante que a label fique acima do input de texto */
             margin-bottom: 5px;
             font-weight: bold;
             font-size: 0.9em;
@@ -717,23 +620,22 @@ hr.section-divider {
     .guest-controls .guest-is-goalkeeper-group {
         display: flex;
         align-items: center;
-        margin-bottom: 15px;
     }
 
         .guest-controls .guest-is-goalkeeper-group input[type="checkbox"] {
-            width: auto;
+            width: auto; /* Tamanho padrão para checkbox */
             margin-right: 8px;
-            transform: scale(1.1);
+            transform: scale(1.4);
         }
 
         .guest-controls .guest-is-goalkeeper-group label {
-            margin-bottom: 0;
+            margin-bottom: 0; /* Remove margem inferior para label do checkbox */
             font-weight: normal;
         }
 
-    .guest-controls .action-button,
+    .guest-controls .action-button, /* Classe genérica para botões de ação */
     #add-guest-button {
-        background-color: #5cb85c;
+        background-color: #5cb85c; /* Verde para adicionar */
         color: white;
         padding: 10px 15px;
     }
@@ -743,13 +645,45 @@ hr.section-divider {
             background-color: #4cae4c;
         }
 
+/* Reutilizando .status-feedback do painel admin */
+.status-feedback.visible {
+    display: block !important; /* Para garantir visibilidade */
+}
+
 .guest-tag {
     font-style: italic;
-    color: #555 !important;
+    color: #555 !important; /* Sobrescreve a cor de .player-info se necessário */
     margin-left: 5px;
 }
+
+
+.form-group-inline label i.far.fa-clock { /* Ícone da tolerância */
+    margin-right: 4px;
+    color: #007bff; /* Cor do ícone, se desejar */
+}
+
+.form-group-inline input[type="checkbox"] {
+    width: auto; /* Tamanho padrão */
+    margin-right: 0; /* Removido, pois o gap no parent cuida disso */
+    transform: scale(1.4);
+    cursor: pointer;
+}
+
+/* Estilo para o indicador de tolerância na lista de jogadores */
+.tolerance-tag {
+    margin-left: 8px; /* Espaço após o nome/tag de goleiro */
+    color: #e67e22; /* Uma cor de destaque, como laranja */
+    font-style: normal; /* Remove itálico se herdado de .player-info */
+    white-space: nowrap;
+}
+
+    .tolerance-tag i {
+        /* font-size: 0.9em; /* Ajuste o tamanho do ícone se necessário */
+    }
+
 /* === Media Queries para Responsividade Mobile === */
-@media (max-width: 768px) {
+
+@media (max-width: 768px) { /* Telas médias, tablets em modo retrato */
     .container {
         padding: 15px;
     }
@@ -778,15 +712,11 @@ hr.section-divider {
     .admin-panel-content h3 {
         font-size: 1.3em;
     }
-
-    .guest-controls h4 {
-        font-size: 1.1em;
-    }
 }
 
-@media (max-width: 600px) {
+@media (max-width: 600px) { /* Celulares */
     body {
-        padding: 5px;
+        padding: 5px; /* Mínimo padding no body */
     }
 
     .container {
@@ -798,21 +728,25 @@ hr.section-divider {
     }
 
         .game-info-header h1 {
-            font-size: 1.3em;
+            font-size: 1.3em; /* Título principal menor */
             margin-bottom: 15px;
         }
 
     .game-details-grid {
-        gap: 10px;
+        gap: 10px; /* Reduz gap do grid */
     }
 
     .info-section {
-        padding: 10px;
+        padding: 10px; /* Menos padding nas seções de info */
     }
 
         .info-section p {
             font-size: 0.85em;
         }
+
+    .tab-buttons {
+        /* Se houver muitos botões de aba, o scroll horizontal já está ativo */
+    }
 
     .tab-button {
         padding: 9px 10px;
@@ -820,23 +754,18 @@ hr.section-divider {
     }
 
     .tab-content {
-        padding: 15px;
+        padding: 10px;
     }
 
         .tab-content .controls {
-            flex-direction: column;
-            align-items: stretch;
-            gap: 10px;
+            flex-direction: column; /* Empilha "Sou goleiro?" e botão */
+            align-items: stretch; /* Estica os itens para ocupar a largura */
+            gap: 5px;
         }
 
-            .tab-content .controls .form-group-inline {
-                width: 100%;
-                justify-content: space-between;
+            .tab-content .controls label {
+                justify-content: center; /* Espalha checkbox do texto "Sou goleiro?" */
             }
-
-                .tab-content .controls .form-group-inline label {
-                    justify-content: flex-start;
-                }
 
     #confirm-presence-button {
         width: 100%;
@@ -849,110 +778,61 @@ hr.section-divider {
     }
 
     .list-section ul li {
-        flex-direction: row;
-        align-items: center;
-        gap: 10px;
+        padding: 8px 10px;
+        align-items: flex-start; /* Alinha tudo à esquerda */
+        gap: 8px; /* Espaço entre info e botão quando empilhado */
     }
 
-    .player-avatar-container {
-        margin-bottom: 0;
+    .admin-user-item {
+        padding: 8px 10px;
+        flex-direction: column;
+        align-items: flex-start; /* Alinha tudo à esquerda */
+        gap: 8px; /* Espaço entre info e botão quando empilhado */
     }
 
-    .player-details-container {
-        margin-bottom: 0;
-    }
-
-    .list-section li .remove-button {
-        width: auto;
-        margin-left: auto;
-        padding: 6px 10px;
-    }
-
-    .guest-controls {
-        padding: 15px;
-    }
-
-        .guest-controls .form-group input[type="text"] {
-            width: 100%;
-            box-sizing: border-box;
-        }
-
-        .guest-controls .guest-is-goalkeeper-group {
-            justify-content: flex-start;
-        }
-
-        .guest-controls .controls {
-            flex-direction: row;
-            align-items: center;
-            gap: 10px;
-            justify-content: space-between;
-        }
-
-            .guest-controls .controls .form-group-inline {
-                width: auto;
-                justify-content: flex-start;
-            }
-
-    #add-guest-button {
-        width: auto;
-        padding: 10px 12px;
-    }
-
+    /* Painel Admin Mobile */
     .admin-panel-content h3 {
         font-size: 1.2em;
     }
 
     #admin-search-user {
-        padding: 10px;
+        padding: 9px;
         font-size: 0.9em;
     }
 
-    .admin-user-item {
-        padding: 10px;
-        flex-direction: column;
-        align-items: flex-start;
-        gap: 10px;
-    }
-
     .admin-user-info {
-        margin-bottom: 10px;
+        margin-right: 0; /* Remove margem */
+        margin-bottom: 8px; /* Espaço abaixo da info do usuário */
         width: 100%;
     }
 
     .admin-user-item-actions {
-        width: 100%;
+        width: 100%; /* Ações ocupam largura total */
         gap: 10px;
-        flex-direction: column;
-        align-items: stretch;
     }
 
-        .admin-user-item-actions label {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-right: 0;
-            width: 100%;
-        }
-
         .admin-user-item-actions .admin-add-gk-checkbox {
-            margin-right: 3px;
-            margin-left: auto;
+            margin-left: 0;
+            margin-right: 0; /* Checkbox alinhado pela label */
         }
 
         .admin-user-item-actions .admin-add-button {
-            width: 100%;
-            padding: 10px;
+            width: 40%;
             margin-left: 0;
+            padding: 10px;
+            margin-left: auto; /* Garante que o botão fique à direita mesmo se o texto for curto */
+            white-space: nowrap;
+            flex-shrink: 0; /* Não encolhe o botão */
         }
 }
 
-@media (max-width: 420px) {
+@media (max-width: 420px) { /* Telas muito pequenas */
     .game-info-header h1 {
         font-size: 1.15em;
     }
 
     .tab-button {
-        font-size: 0.8em;
+        font-size: 0.8em; /* Botões de aba ainda menores */
         padding: 8px 6px;
     }
 
@@ -960,18 +840,12 @@ hr.section-divider {
         font-size: 1.05em;
     }
 
-    .player-name-main {
+    .player-name, .admin-user-info strong {
         font-size: 0.9em;
     }
 
-    .admin-user-info strong {
-        font-size: 0.9em;
-    }
-
-    .list-section li .remove-button,
-    .admin-user-item-actions .admin-add-button {
-        font-size: 0.9em;
-        padding: 9px 10px;
+    .list-section li .remove-button, .admin-user-item-actions .admin-add-button {
+        font-size: 0.85em;
     }
 
     .info-section p, .external-links p {
@@ -980,9 +854,5 @@ hr.section-divider {
 
     .tab-content .controls label, #confirm-presence-button {
         font-size: 0.9em;
-    }
-
-    .guest-controls h4 {
-        font-size: 1.0em;
     }
 }

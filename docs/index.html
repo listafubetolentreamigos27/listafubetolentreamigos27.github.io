@@ -12,6 +12,7 @@
         <div class="game-info-header">
             <h1>Lista de Presença</h1>
             <h1>FUTEBOL ENTRE AMIGOS ⚽</h1>
+
             <div class="game-details-grid">
                 <div class="info-section time-info">
                     <h3>Horários e Tolerância:</h3>
@@ -33,9 +34,7 @@
                 <p><a href="https://docs.google.com/spreadsheets/d/1Zk7kyL-C-s0rBq9JB9J1eNqOfTrnJcZkokIS_y_uyN8/edit?usp=sharing" target="_blank" rel="noopener noreferrer">Controle Financeiro</a></p>
             </div>
         </div>
-
-        <p id="list-status-message" class="list-status"></p>
-
+        <p id="list-status-message" class="list-status"></p> <div class="controls"></div>
         <div id="auth-container">
             <p id="user-info">Por favor, faça login para participar.</p>
             <button id="login-button"><i class="fab fa-google"></i> Login com Google</button>
@@ -50,35 +49,23 @@
 
             <div class="tab-content active" id="tab-game-lists">
                 <div class="controls">
-                    <div class="form-group-inline">
-                        <input type="checkbox" id="is-goalkeeper">
-                        <label for="is-goalkeeper">Sou goleiro?</label>
-                    </div>
-                    <div class="form-group-inline tolerance-control">
-                        <input type="checkbox" id="needs-tolerance">
-                        <label for="needs-tolerance"><i class="far fa-clock"></i> Preciso de 10min de tolerância</label>
-                    </div>
+                    <label for="is-goalkeeper"><input type="checkbox" id="is-goalkeeper"> Sou goleiro? </label>
+                    <label for="needs-tolerance"> <input type="checkbox" id="needs-tolerance">  Preciso de 10min de tolerância (trabalho) </label>
                     <button id="confirm-presence-button"><i class="fas fa-user-check"></i> Confirmar minha Presença</button>
                 </div>
                 <p id="error-message" class="error-message"></p>
-
-                <hr class="section-divider">
-                <div class="guest-controls">
+                <hr class="section-divider"> <div class="guest-controls">
                     <h4><i class="fas fa-user-friends"></i> Adicionar Convidado</h4>
                     <p id="guest-friday-message" style="text-align:center; color:#721c24; margin-bottom:10px; display:none; font-weight:bold;"></p>
                     <div class="form-group">
                         <input type="text" id="guest-name" placeholder="Nome do convidado">
                     </div>
                     <div class="controls">
-                        <div class="form-group-inline guest-is-goalkeeper-group">
-                            <input type="checkbox" id="guest-is-goalkeeper">
-                            <label for="guest-is-goalkeeper">Convidado é goleiro?</label>
-                        </div>
+                        <label for="guest-is-goalkeeper">Convidado é goleiro?  <input type="checkbox" id="guest-is-goalkeeper"></label>
                         <button id="add-guest-button" class="action-button"><i class="fas fa-user-plus"></i> Adicionar Convidado</button>
                     </div>
                     <p id="guest-add-status" class="status-feedback" style="margin-top:10px;"></p>
                 </div>
-
                 <div class="list-section">
                     <h2>Goleiros Confirmados (<span id="confirmed-gk-count">0</span>/<span id="max-goalkeepers-display">4</span>)</h2>
                     <ul id="confirmed-goalkeepers-list"></ul>
@@ -118,6 +105,7 @@
                                 <label for="admin-open-minute">Minuto Abertura (0-59):</label>
                                 <input type="number" id="admin-open-minute" min="0" max="59" placeholder="MM">
                             </div>
+
                             <div class="form-group">
                                 <label for="admin-close-day">Dia de Fechamento:</label>
                                 <select id="admin-close-day">
@@ -143,6 +131,7 @@
                         <button id="save-schedule-button" class="admin-action-button"><i class="fas fa-save"></i> Salvar Horários</button>
                         <p id="schedule-save-status" class="status-feedback"></p>
                     </div>
+
                     <hr class="admin-section-divider">
                     <h3>Usuários Registrados</h3>
                     <p><small>Lista de usuários que já fizeram login. Use para adicionar jogadores às listas de futebol.</small></p>
@@ -154,8 +143,8 @@
                 </div>
             </div>
         </div>
+        <p id="error-message" class="error-message"></p>
     </div>
-
     <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-database-compat.js"></script>

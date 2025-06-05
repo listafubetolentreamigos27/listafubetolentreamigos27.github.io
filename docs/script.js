@@ -48,8 +48,6 @@ const guestNameInput = document.getElementById('guest-name');
 const guestIsGoalkeeperCheckbox = document.getElementById('guest-is-goalkeeper');
 const addGuestButton = document.getElementById('add-guest-button');
 const guestAddStatusElement = document.getElementById('guest-add-status');
-const guestFridayMessageElement = document.getElementById('guest-friday-message');
-
 
 const confirmedGkCountSpan = document.getElementById('confirmed-gk-count');
 const maxGoalkeepersDisplaySpan = document.getElementById('max-goalkeepers-display');
@@ -81,19 +79,21 @@ const scheduleSaveStatusElement = document.getElementById('schedule-save-status'
 let currentUser = null;
 let isCurrentUserAdmin = false;
 let allUsersDataForAdminCache = [];
-let listStatusUpdateInterval = null;
-const LIST_STATUS_UPDATE_INTERVAL_MS = 20 * 1000;
-
+let listStatusUpdateInterval = null; // Para controlar nosso temporizador
+const LIST_STATUS_UPDATE_INTERVAL_MS = 20 * 1000; // Verificar a cada 30 segundos
 // --- Lógica de Horário e Fuso Horário de Brasília ---
 function getCurrentBrasiliaDateTimeParts() {
     const nowUtc = new Date();
+    // 'en-US' é usado para um formato de string mais previsível para o construtor new Date()
+    // A conversão de fuso é feita por timeZone: 'America/Sao_Paulo'
     const brasiliaDateString = nowUtc.toLocaleString('en-US', { timeZone: 'America/Sao_Paulo' });
     const brasiliaEquivalentDate = new Date(brasiliaDateString);
+
     return {
-        dayOfWeek: brasiliaEquivalentDate.getDay(),
+        dayOfWeek: brasiliaEquivalentDate.getDay(), // 0 (Dom) a 6 (Sáb)
         hour: brasiliaEquivalentDate.getHours(),
         minute: brasiliaEquivalentDate.getMinutes(),
-        dateObject: brasiliaEquivalentDate
+        dateObject: brasiliaEquivalentDate // O objeto Date para mais cálculos se necessário
     };
 }
 
@@ -107,30 +107,23 @@ function isListCurrentlyOpen() {
     const currentHour = brasiliaTime.hour;
     const currentMinute = brasiliaTime.minute;
 
-    if (currentDay === currentScheduleConfig.openDay) {
+    if (currentDay === currentScheduleConfig.openDay) { // Dia de abertura (ex: Quarta)
         return currentHour > currentScheduleConfig.openHour || (currentHour === currentScheduleConfig.openHour && currentMinute >= currentScheduleConfig.openMinute);
     }
-    if (currentDay > currentScheduleConfig.openDay && currentDay < currentScheduleConfig.closeDay) {
+    if (currentDay > currentScheduleConfig.openDay && currentDay < currentScheduleConfig.closeDay) { // Dias intermediários (ex: Quinta, Sexta)
         return true;
     }
-    if (currentDay === currentScheduleConfig.closeDay) {
+    if (currentDay === currentScheduleConfig.closeDay) { // Dia de fechamento (ex: Sábado)
         return currentHour < currentScheduleConfig.closeHour || (currentHour === currentScheduleConfig.closeHour && currentMinute < currentScheduleConfig.closeMinute);
     }
-    return false;
+    return false; // Fora do período
 }
 
 function getMostRecentListOpenTimestamp() {
     if (!scheduleConfigLoaded) {
+        // Não deve ser chamada antes das configs carregarem para lógica crítica como auto-add.
+        // Se chamada, usará os defaults em currentScheduleConfig, o que pode ser ok para UI inicial.
         console.warn("getMostRecentListOpenTimestamp chamada antes das configs do Firebase serem totalmente carregadas. Usando defaults se disponíveis.");
-        // Retorna um timestamp válido usando os defaults para evitar erros, mas a lógica pode não ser ideal até carregar.
-        const tempDefaultSchedule = { openDay: 3, openHour: 19, openMinute: 0 }; // Fallback seguro
-        const tempNow = getCurrentBrasiliaDateTimeParts().dateObject;
-        let tempOpenDate = new Date(tempNow.getTime());
-        const tempDayDiff = (tempNow.getDay() - tempDefaultSchedule.openDay + 7) % 7;
-        tempOpenDate.setDate(tempNow.getDate() - tempDayDiff);
-        tempOpenDate.setHours(tempDefaultSchedule.openHour, tempDefaultSchedule.openMinute, 0, 0);
-        if (tempOpenDate.getTime() > tempNow.getTime()) tempOpenDate.setDate(tempOpenDate.getDate() - 7);
-        return tempOpenDate.getTime();
     }
     const nowInBrasiliaView = getCurrentBrasiliaDateTimeParts().dateObject;
     let listOpenDateTimeInBrasiliaView = new Date(nowInBrasiliaView.getTime());
@@ -154,11 +147,12 @@ function updateListAvailabilityUI() {
         if (confirmPresenceButton) confirmPresenceButton.disabled = true;
         return;
     }
-    if (!scheduleConfigLoaded && !currentUser) {
+    if (!scheduleConfigLoaded && !currentUser) { // Se deslogado e config não carregou
         if (listStatusMessageElement) listStatusMessageElement.textContent = "Faça login para ver o status da lista.";
         if (confirmPresenceButton) confirmPresenceButton.disabled = true;
         return;
     }
+
 
     const isOpen = isListCurrentlyOpen();
     if (listStatusMessageElement) {
@@ -168,69 +162,16 @@ function updateListAvailabilityUI() {
         } else {
             const dias = ["Domingo", "Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"];
             const openTimeStr = `${dias[currentScheduleConfig.openDay]} às ${String(currentScheduleConfig.openHour).padStart(2, '0')}:${String(currentScheduleConfig.openMinute).padStart(2, '0')}`;
+
             let closeMinuteDisplay = String(currentScheduleConfig.closeMinute).padStart(2, '0');
-            if (parseInt(currentScheduleConfig.closeMinute, 10) === 1 && parseInt(currentScheduleConfig.closeHour, 10) === 16) {
+            if (currentScheduleConfig.closeMinute === 1 && currentScheduleConfig.closeHour === 16) { // Lógica específica para "16:01 perde a vaga"
                 closeMinuteDisplay = "01";
             }
             const closeTimeStr = `${dias[currentScheduleConfig.closeDay]} às ${String(currentScheduleConfig.closeHour).padStart(2, '0')}:${closeMinuteDisplay}`;
+
             listStatusMessageElement.textContent = `Lista FECHADA. Abre ${openTimeStr}, fecha ${closeTimeStr}.`;
             listStatusMessageElement.className = 'list-status closed';
         }
-    }
-    if (confirmPresenceButton) {
-        if (currentUser) {
-            confirmPresenceButton.disabled = isCurrentUserAdmin ? false : !isOpen;
-        } else {
-            confirmPresenceButton.disabled = true;
-        }
-    }
-}
-
-function isItFridayInBrasilia() {
-    const brasiliaTime = getCurrentBrasiliaDateTimeParts();
-    return brasiliaTime.dayOfWeek === 5;
-}
-
-function updateGuestAdditionAvailabilityUI() {
-    const guestNameInputElem = guestNameInput;
-    const guestIsGoalkeeperCheckboxElem = guestIsGoalkeeperCheckbox;
-    const addGuestButtonElem = addGuestButton;
-    const guestFridayMessageElem = document.getElementById('guest-friday-message');
-    const guestNameLabel = document.querySelector('.guest-controls .form-group label[for="guest-name"]'); // Mais específico
-    const guestIsGkGroup = document.querySelector('.guest-controls .guest-is-goalkeeper-group');
-
-
-    if (!guestNameInputElem || !guestIsGoalkeeperCheckboxElem || !addGuestButtonElem || !guestFridayMessageElem || !guestNameLabel || !guestIsGkGroup) {
-        console.warn("Elementos da UI de convidado não encontrados para updateGuestAdditionAvailabilityUI.");
-        return;
-    }
-
-    const canAddGuestsToday = isItFridayInBrasilia();
-
-    if (isCurrentUserAdmin) {
-        guestNameInputElem.disabled = false;
-        guestIsGoalkeeperCheckboxElem.disabled = false;
-        addGuestButtonElem.disabled = false;
-        guestFridayMessageElem.style.display = 'none';
-        guestNameLabel.style.display = 'block';
-        guestIsGkGroup.style.display = 'flex';
-        guestNameInputElem.style.display = 'block';
-        addGuestButtonElem.style.display = 'inline-flex';
-    } else if (canAddGuestsToday) {
-        guestNameInputElem.disabled = false;
-        guestIsGoalkeeperCheckboxElem.disabled = false;
-        addGuestButtonElem.disabled = false;
-        guestFridayMessageElem.style.display = 'none';
-        guestNameLabel.style.display = 'block';
-        guestIsGkGroup.style.display = 'flex';
-        guestNameInputElem.style.display = 'block';
-        addGuestButtonElem.style.display = 'inline-flex';
-    } else {
-        guestNameInputElem.disabled = true;
-        guestIsGoalkeeperCheckboxElem.disabled = true;
-        addGuestButtonElem.disabled = true;
-        guestFridayMessageElem.textContent = "Adição de convidados permitida apenas às sextas-feiras.";
-        guestFridayMessageElem.style.display = 'block';
     }
 }
 
@@ -244,18 +185,17 @@ function fetchScheduleSettings() {
             console.log("Configurações de horário carregadas/atualizadas:", currentScheduleConfig);
         } else {
             console.warn("Config. de horário não encontradas ou inválidas. Usando padrões.");
+            // currentScheduleConfig já tem os valores padrão
         }
         scheduleConfigLoaded = true;
 
         updateListAvailabilityUI();
         updateGuestAdditionAvailabilityUI();
-        if (currentUser && isCurrentUserAdmin) {
-            populateScheduleForm(currentScheduleConfig);
+        if (currentUser) {
+            populateScheduleForm(currentScheduleConfig); // Popula o formulário quando as configs carregam/mudam
             checkAndPerformAdminAutoAdd();
-        } else if (currentUser) {
-            // Chamada para updateGuestAdditionAvailabilityUI já feita
         }
-
+        // ... (resto da lógica de iniciar o intervalo de atualização)
         if (listStatusUpdateInterval) clearInterval(listStatusUpdateInterval);
         listStatusUpdateInterval = setInterval(() => {
             updateListAvailabilityUI();
@@ -266,86 +206,77 @@ function fetchScheduleSettings() {
         console.error("Erro ao buscar config. de horário:", error);
         scheduleConfigLoaded = true;
         updateListAvailabilityUI();
-        updateGuestAdditionAvailabilityUI();
-        if (currentUser && isCurrentUserAdmin) {
+        if (currentUser && isCurrentUserAdmin) { // Popula com defaults mesmo em erro
             populateScheduleForm(currentScheduleConfig);
         }
         if (listStatusUpdateInterval) clearInterval(listStatusUpdateInterval);
         listStatusUpdateInterval = setInterval(() => {
             updateListAvailabilityUI();
-            updateGuestAdditionAvailabilityUI();
         }, LIST_STATUS_UPDATE_INTERVAL_MS);
     });
 }
 
+
 // --- Lógica de Autenticação ---
-auth.onAuthStateChanged(async user => {
+auth.onAuthStateChanged(async user => { // Mantenha async
     if (user) {
-        let userObjectToUse = user;
+        let userObjectToUse = user; // Começa com o objeto 'user' do callback
+
         try {
             console.log("onAuthStateChanged - Tentando user.reload() para perfil atualizado...");
             await userObjectToUse.reload();
-            userObjectToUse = auth.currentUser;
+            userObjectToUse = auth.currentUser; // Pega o objeto de usuário mais fresco após o reload
             console.log("user.reload() bem-sucedido. displayName atual (antes de providerData):", userObjectToUse.displayName);
         } catch (error) {
             console.error("Erro durante user.reload():", error);
+            // Em caso de falha no reload, continua com o objeto 'user' que recebemos
         }
 
-        let finalDisplayName = userObjectToUse.displayName;
-        let finalPhotoURL = userObjectToUse.photoURL; // Captura photoURL
+        // Agora, verifica providerData e atualiza o perfil do Firebase se necessário
+        let finalDisplayName = userObjectToUse.displayName; // Começa com o displayName atual
         const providerData = userObjectToUse.providerData;
 
         if (providerData && providerData.length > 0) {
             const googleInfo = providerData.find(p => p.providerId === 'google.com');
-            if (googleInfo) {
-                if (googleInfo.displayName && googleInfo.displayName !== finalDisplayName) {
-                    console.log(`DisplayName divergente. Top-level: "${finalDisplayName}", ProviderData: "${googleInfo.displayName}".`);
-                    finalDisplayName = googleInfo.displayName;
-                } else if (googleInfo.displayName) {
-                    finalDisplayName = googleInfo.displayName || finalDisplayName;
-                }
-                // Atualiza photoURL se diferente
-                if (googleInfo.photoURL && googleInfo.photoURL !== finalPhotoURL) {
-                    console.log(`PhotoURL divergente. Tentando atualizar perfil.`);
-                    finalPhotoURL = googleInfo.photoURL;
-                } else if (googleInfo.photoURL) {
-                    finalPhotoURL = googleInfo.photoURL || finalPhotoURL;
-                }
-
-                // Tenta atualizar o perfil do Firebase se algo mudou
-                if (finalDisplayName !== userObjectToUse.displayName || finalPhotoURL !== userObjectToUse.photoURL) {
+            if (googleInfo && googleInfo.displayName) {
+                if (googleInfo.displayName !== finalDisplayName) {
+                    console.log(`DisplayName divergente. Top-level: "${finalDisplayName}", ProviderData: "${googleInfo.displayName}". Tentando atualizar perfil do Firebase.`);
+                    finalDisplayName = googleInfo.displayName; // Usa o nome do providerData
                     try {
-                        await userObjectToUse.updateProfile({ displayName: finalDisplayName, photoURL: finalPhotoURL });
-                        userObjectToUse = auth.currentUser;
-                        finalDisplayName = userObjectToUse.displayName;
-                        finalPhotoURL = userObjectToUse.photoURL;
-                        console.log("Perfil do Firebase atualizado. Novo displayName:", finalDisplayName, "Nova photoURL:", finalPhotoURL);
+                        await userObjectToUse.updateProfile({ displayName: finalDisplayName });
+                        userObjectToUse = auth.currentUser; // Pega o usuário mais atualizado possível após updateProfile
+                        finalDisplayName = userObjectToUse.displayName; // Confirma o nome final
+                        console.log("Perfil do Firebase atualizado com displayName do providerData. Novo displayName:", finalDisplayName);
                     } catch (updateError) {
-                        console.error("Erro ao atualizar o perfil do Firebase:", updateError);
+                        console.error("Erro ao atualizar o perfil do Firebase com displayName do providerData:", updateError);
+                        // Se updateProfile falhar, finalDisplayName já tem o valor do providerData para uso nesta sessão
                     }
                 } else {
-                    console.log("DisplayName e PhotoURL do providerData são os mesmos do top-level ou já atualizados.");
+                    // O displayName do providerData já é o mesmo do top-level, ou o top-level é nulo e o providerData tem um nome
+                    finalDisplayName = googleInfo.displayName || finalDisplayName; // Garante que temos o nome se o top-level era nulo
+                    console.log("DisplayName do providerData (" + googleInfo.displayName + ") é o mesmo do top-level ou o top-level foi atualizado.");
                 }
             }
         }
-        currentUser = userObjectToUse;
 
+        currentUser = userObjectToUse; // Define o currentUser global com o objeto mais atualizado que temos
+
+        // --- O RESTANTE DA SUA LÓGICA onAuthStateChanged CONTINUA AQUI ---
+        // Use 'finalDisplayName' para exibição e para salvar no seu banco de dados (allUsersLogins)
         if (userInfo) userInfo.textContent = `Logado como: ${finalDisplayName || currentUser.email || "Usuário"}`;
         if (loginButton) loginButton.style.display = 'none';
         if (logoutButton) logoutButton.style.display = 'inline-block';
-
-        // Linha que você pediu para manter como 'none' para tabsContainer após login:
-        if (tabsContainer) tabsContainer.style.display = 'none';
+        if (tabsContainer) tabsContainer.style.display = 'block';
 
         const userLoginRef = database.ref(`allUsersLogins/${currentUser.uid}`);
         userLoginRef.set({
-            name: finalDisplayName || "Usuário Anônimo",
-            photoURL: finalPhotoURL || null, // Salva a photoURL mais precisa
+            name: finalDisplayName || "Usuário Anônimo", // Usa o nome mais preciso
             lastLogin: firebase.database.ServerValue.TIMESTAMP
         }).catch(error => {
             console.error("Erro ao salvar informações de login do usuário:", error);
         });
 
+        // Verificar status de admin
         const adminStatusRef = database.ref(`admins/${currentUser.uid}`);
         try {
             const snapshot = await adminStatusRef.once('value');
@@ -358,7 +289,6 @@ auth.onAuthStateChanged(async user => {
 
             if (isCurrentUserAdmin) {
                 loadAndRenderAllUsersListForAdmin();
-                if (scheduleConfigLoaded) populateScheduleForm(currentScheduleConfig);
             } else {
                 const adminPanelTab = document.getElementById('tab-admin-panel');
                 if (adminPanelTab && adminPanelTab.classList.contains('active')) {
@@ -368,7 +298,6 @@ auth.onAuthStateChanged(async user => {
                 if (adminAllUsersListElement) adminAllUsersListElement.innerHTML = '';
                 allUsersDataForAdminCache = [];
             }
-
             updateGuestAdditionAvailabilityUI();
             loadLists();
 
@@ -382,12 +311,11 @@ auth.onAuthStateChanged(async user => {
             console.error("Erro ao verificar admin:", error);
             isCurrentUserAdmin = false;
             if (adminTabButton) adminTabButton.style.display = 'none';
-            updateGuestAdditionAvailabilityUI();
             loadLists();
             if (scheduleConfigLoaded) updateListAvailabilityUI();
         }
 
-    } else {
+    } else { // Usuário deslogado
         isCurrentUserAdmin = false;
         currentUser = null;
         updateGuestAdditionAvailabilityUI();
@@ -402,7 +330,6 @@ auth.onAuthStateChanged(async user => {
             else listStatusMessageElement.textContent = '';
         }
         if (confirmPresenceButton) confirmPresenceButton.disabled = true;
-        if (isGoalkeeperCheckbox) isGoalkeeperCheckbox.checked = false;
         if (needsToleranceCheckbox) needsToleranceCheckbox.checked = false;
 
         clearListsUI();
@@ -426,25 +353,33 @@ logoutButton.addEventListener('click', () => {
     });
 });
 
+// --- Lógica das Abas ---
 if (tabButtons && tabContents) {
     tabButtons.forEach(button => {
         button.addEventListener('click', () => {
+            // ... (código existente para desativar/ativar abas) ...
             tabButtons.forEach(btn => btn.classList.remove('active'));
             tabContents.forEach(content => content.classList.remove('active'));
             button.classList.add('active');
             const targetTabId = button.getAttribute('data-tab');
             const targetContent = document.getElementById(targetTabId);
-            if (targetContent) targetContent.classList.add('active');
+            if (targetContent) {
+                targetContent.classList.add('active');
+            }
+
             if (targetTabId === 'tab-admin-panel' && isCurrentUserAdmin) {
-                if (scheduleConfigLoaded) populateScheduleForm(currentScheduleConfig);
+                if (scheduleConfigLoaded) { // Se as configs já carregaram
+                    populateScheduleForm(currentScheduleConfig); // Popula o formulário
+                }
                 if (adminSearchUserInput) filterAndRenderAdminUserList(adminSearchUserInput.value);
             }
         });
     });
 }
 
+// --- Adição Automática de Admins ---
 async function checkAndPerformAdminAutoAdd() {
-    if (!isCurrentUserAdmin || !scheduleConfigLoaded || !isListCurrentlyOpen()) {
+    if (!scheduleConfigLoaded || !isListCurrentlyOpen()) {
         if (!scheduleConfigLoaded) console.log("Auto-add: Horários não carregados.");
         else if (!isListCurrentlyOpen()) console.log("Auto-add: Lista não está aberta.");
         return;
@@ -476,49 +411,35 @@ async function checkAndPerformAdminAutoAdd() {
             let confirmedPlayers = confirmedSnapshot.val() || {};
             const allLogins = allLoginsSnapshot.val() || {};
 
-            let localConfirmedPlayersArray = Object.values(confirmedPlayers);
+            let localConfirmedPlayersArray = Object.values(confirmedPlayers); // Para contagem atual
             let numConfirmedFieldPlayers = localConfirmedPlayersArray.filter(p => !p.isGoalkeeper).length;
-            let numConfirmedGoalkeepers = localConfirmedPlayersArray.filter(p => p.isGoalkeeper).length; // Contar goleiros também
 
             let adminsAddedCount = 0;
             for (const adminUid of adminUids) {
                 if (!confirmedPlayers[adminUid]) {
-                    const adminLoginData = allLogins[adminUid];
-                    const adminName = adminLoginData?.name || `Admin ${adminUid.substring(0, 6)}`;
-                    const adminPhotoURL = adminLoginData?.photoURL || null;
+                    const adminName = allLogins[adminUid]?.name || `Admin ${adminUid.substring(0, 6)}`;
+                    const adminData = {
+                        name: adminName,
+                        isGoalkeeper: false,
+                        timestamp: firebase.database.ServerValue.TIMESTAMP
+                    };
 
-                    const isAdminGoalkeeper = false; // Admins são adicionados como linha por padrão
-                    let canAddAdmin = false;
-
-                    if (isAdminGoalkeeper) {
-                        if (numConfirmedGoalkeepers < MAX_GOALKEEPERS) canAddAdmin = true;
-                    } else {
-                        if (numConfirmedFieldPlayers < MAX_FIELD_PLAYERS) canAddAdmin = true;
-                    }
-
-                    if (canAddAdmin) {
-                        const adminData = {
-                            name: adminName,
-                            isGoalkeeper: isAdminGoalkeeper,
-                            needsTolerance: false,
-                            photoURL: adminPhotoURL,
-                            timestamp: firebase.database.ServerValue.TIMESTAMP
-                        };
+                    if (numConfirmedFieldPlayers < MAX_FIELD_PLAYERS) {
                         await confirmedPlayersRef.child(adminUid).set(adminData);
                         console.log(`Admin ${adminName} adicionado automaticamente.`);
                         adminsAddedCount++;
-                        confirmedPlayers[adminUid] = adminData;
-                        if (isAdminGoalkeeper) numConfirmedGoalkeepers++; else numConfirmedFieldPlayers++;
+                        confirmedPlayers[adminUid] = adminData; // Atualiza cópia local para contagem
+                        numConfirmedFieldPlayers++;             // Atualiza contagem local
                     } else {
-                        console.log(`Admin ${adminName} não pôde ser adicionado automaticamente (limite de ${isAdminGoalkeeper ? 'goleiros' : 'jogadores de linha'} atingido).`);
+                        console.log(`Admin ${adminName} não pôde ser adicionado (limite de linha).`);
                     }
                 } else {
-                    console.log(`Admin ${allLogins[adminUid]?.name || adminUid.substring(0, 6)} já está na lista de confirmados.`);
+                    console.log(`Admin ${allLogins[adminUid]?.name || adminUid.substring(0, 6)} já está na lista.`);
                 }
             }
 
-            if (adminsAddedCount > 0) displayErrorMessage(`${adminsAddedCount} administrador(es) adicionado(s) automaticamente.`);
-            else if (adminUids.length > 0) console.log("Admins para auto-add já na lista ou sem vagas.");
+            if (adminsAddedCount > 0) console.log(`${adminsAddedCount} administrador(es) adicionado(s).`);
+            else if (adminUids.length > 0) console.log("Administradores já estavam na lista ou não havia vagas.");
 
             await scheduleStateRef.set(currentCycleTimestamp);
         } else {
@@ -526,9 +447,15 @@ async function checkAndPerformAdminAutoAdd() {
         }
     } catch (error) {
         console.error("Erro na adição automática de admins:", error);
-        displayErrorMessage("Erro ao adicionar admins automaticamente.");
     }
 }
+
+// --- Lógica da Lista de Presença (Firebase Refs e Funções) ---
+const confirmedPlayersRef = database.ref('listaFutebol/jogadoresConfirmados');
+const waitingListRef = database.ref('listaFutebol/listaEspera');
+
+if (maxGoalkeepersDisplaySpan) maxGoalkeepersDisplaySpan.textContent = MAX_GOALKEEPERS;
+if (maxFieldplayersDisplaySpan) maxFieldplayersDisplaySpan.textContent = MAX_FIELD_PLAYERS;
 
 function displayErrorMessage(message) {
     if (errorMessageElement) {
@@ -556,22 +483,24 @@ confirmPresenceButton.addEventListener('click', () => {
     const isGoalkeeperForTransaction = isGoalkeeperCheckbox.checked;
     const needsToleranceForTransaction = needsToleranceCheckbox.checked;
     const playerIdForTransaction = currentUser.uid;
-    const playerNameForTransaction = (currentUser && currentUser.displayName) ? currentUser.displayName : "Jogador Anônimo";
-    const playerPhotoURLForTransaction = (currentUser && currentUser.photoURL) ? currentUser.photoURL : null;
+    const playerNameForTransaction = currentUser.displayName || "Jogador Anônimo";
 
     const listaFutebolRef = database.ref('listaFutebol');
     displayErrorMessage("Processando sua confirmação...");
 
     listaFutebolRef.transaction((currentListaFutebolData) => {
         if (currentListaFutebolData === null) {
-            currentListaFutebolData = { jogadoresConfirmados: {}, listaEspera: {} };
+            currentListaFutebolData = {
+                jogadoresConfirmados: {},
+                listaEspera: {}
+            };
         }
         const confirmedPlayers = currentListaFutebolData.jogadoresConfirmados || {};
         const waitingPlayers = currentListaFutebolData.listaEspera || {};
 
         if (confirmedPlayers[playerIdForTransaction] || waitingPlayers[playerIdForTransaction]) {
             console.log("Transação: Usuário já está na lista. Abortando.");
-            return undefined;
+            return undefined; // Aborta a transação
         }
 
         const confirmedPlayersArray = Object.values(confirmedPlayers);
@@ -582,11 +511,11 @@ confirmPresenceButton.addEventListener('click', () => {
             name: playerNameForTransaction,
             isGoalkeeper: isGoalkeeperForTransaction,
             needsTolerance: needsToleranceForTransaction,
-            photoURL: playerPhotoURLForTransaction,
             timestamp: firebase.database.ServerValue.TIMESTAMP
         };
 
-        let madeChange = false;
+        let madeChange = false; // Para rastrear se uma alteração válida foi feita
+
         if (isGoalkeeperForTransaction) {
             if (numConfirmedGoalkeepers < MAX_GOALKEEPERS) {
                 confirmedPlayers[playerIdForTransaction] = playerData;
@@ -595,7 +524,7 @@ confirmPresenceButton.addEventListener('click', () => {
                 waitingPlayers[playerIdForTransaction] = playerData;
                 madeChange = true;
             }
-        } else {
+        } else { // Jogador de linha
             if (numConfirmedFieldPlayers < MAX_FIELD_PLAYERS) {
                 confirmedPlayers[playerIdForTransaction] = playerData;
                 madeChange = true;
@@ -608,53 +537,119 @@ confirmPresenceButton.addEventListener('click', () => {
         if (madeChange) {
             currentListaFutebolData.jogadoresConfirmados = confirmedPlayers;
             currentListaFutebolData.listaEspera = waitingPlayers;
+            // NÃO adicione flags _transaction_action ou _transaction_playerName aqui
             return currentListaFutebolData;
         } else {
-            return undefined;
+            // Se nenhuma mudança lógica foi feita (embora o primeiro check de "já na lista" devesse pegar isso)
+            return undefined; // Aborta
         }
+
     }, (error, committed, snapshot) => {
         if (error) {
             console.error("Falha na transação:", error);
             displayErrorMessage("Erro ao processar sua confirmação. Tente novamente.");
         } else if (!committed) {
             console.log("Transação não efetivada.");
+            // Verifica novamente o estado atual para dar uma mensagem mais precisa
             database.ref(`listaFutebol/jogadoresConfirmados/${playerIdForTransaction}`).once('value', sConfirm => {
                 database.ref(`listaFutebol/listaEspera/${playerIdForTransaction}`).once('value', sWait => {
                     if (sConfirm.exists() || sWait.exists()) {
                         displayErrorMessage("Você já está na lista ou na espera (verificado no servidor).");
                     } else {
-                        displayErrorMessage("Não foi possível confirmar. Vagas podem ter sido preenchidas ou houve um conflito.");
+                        displayErrorMessage("Não foi possível confirmar. Vagas podem ter sido preenchidas ou houve um conflito. Tente novamente.");
                     }
                 });
             });
         } else {
+            // Transação bem-sucedida!
             console.log("Confirmação processada com sucesso pelo servidor.");
-            const dataCommitted = snapshot.val();
+            const dataCommitted = snapshot.val(); // Este é o novo estado de /listaFutebol
+
+            // Inferir o que aconteceu baseado no snapshot final
             if (dataCommitted && dataCommitted.jogadoresConfirmados && dataCommitted.jogadoresConfirmados[playerIdForTransaction]) {
-                const p = dataCommitted.jogadoresConfirmados[playerIdForTransaction];
-                displayErrorMessage(`${p.name}, presença ${p.isGoalkeeper ? 'como goleiro(a)' : ''} confirmada!`);
+                const playerCommitted = dataCommitted.jogadoresConfirmados[playerIdForTransaction];
+                displayErrorMessage(`${playerCommitted.name}, presença ${playerCommitted.isGoalkeeper ? 'como goleiro(a)' : ''} confirmada!`);
             } else if (dataCommitted && dataCommitted.listaEspera && dataCommitted.listaEspera[playerIdForTransaction]) {
-                const p = dataCommitted.listaEspera[playerIdForTransaction];
-                displayErrorMessage(`${p.name}, você foi adicionado(a) à lista de espera.`);
+                const playerCommitted = dataCommitted.listaEspera[playerIdForTransaction];
+                displayErrorMessage(`${playerCommitted.name}, você foi adicionado(a) à lista de espera.`);
             } else {
-                displayErrorMessage("Sua solicitação foi processada com sucesso!");
+                displayErrorMessage("Sua solicitação foi processada com sucesso!"); // Fallback
             }
+            // A UI será atualizada pelos listeners .on('value') existentes.
         }
-        if (isGoalkeeperCheckbox) isGoalkeeperCheckbox.checked = false;
-        if (needsToleranceCheckbox) needsToleranceCheckbox.checked = false;
     });
 });
 
 function displayGuestAddStatus(message, isError = false) {
     if (guestAddStatusElement) {
         guestAddStatusElement.textContent = message;
-        guestAddStatusElement.className = `status-feedback ${isError ? 'error' : 'success'} visible`;
+        guestAddStatusElement.className = `status-feedback ${isError ? 'error' : 'success'} visible`; // Adiciona 'visible'
         setTimeout(() => {
             if (guestAddStatusElement) {
                 guestAddStatusElement.textContent = '';
                 guestAddStatusElement.classList.remove('visible', 'error', 'success');
             }
         }, 4000);
+    }
+}
+
+function isItFridayInBrasilia() {
+    const brasiliaTime = getCurrentBrasiliaDateTimeParts();
+    return brasiliaTime.dayOfWeek === 5 || brasiliaTime.dayOfWeek === 6; // Sexta-feira ou Sábado)
+}
+
+function updateGuestAdditionAvailabilityUI() {
+    const guestNameInputElem = guestNameInput; // Usando as vars globais já definidas
+    const guestIsGoalkeeperCheckboxElem = guestIsGoalkeeperCheckbox;
+    const addGuestButtonElem = addGuestButton;
+    const guestFridayMessageElem = document.getElementById('guest-friday-message');
+    // Seleciona a label do nome e o grupo do checkbox de goleiro para escondê-los também
+    const guestNameLabel = document.querySelector('label[for="guest-name"]');
+    const guestIsGkGroup = document.querySelector('.guest-is-goalkeeper-group');
+
+
+    if (!guestNameInputElem || !guestIsGoalkeeperCheckboxElem || !addGuestButtonElem || !guestFridayMessageElem || !guestNameLabel || !guestIsGkGroup) {
+        // Se algum elemento essencial não for encontrado, não faz nada para evitar erros.
+        return;
+    }
+
+    const canAddGuestsTodayByTime = isItFridayInBrasilia();
+
+    if (isCurrentUserAdmin) { // Admins sempre podem adicionar
+        guestNameInputElem.disabled = false;
+        guestIsGoalkeeperCheckboxElem.disabled = false;
+        addGuestButtonElem.disabled = false;
+        guestFridayMessageElem.style.display = 'none'; // Esconde mensagem de restrição
+
+        // Garante que os elementos do formulário estão visíveis para o admin
+        guestNameLabel.style.display = 'block';
+        guestIsGkGroup.style.display = 'flex'; // Ou o display original que você usa
+        guestNameInputElem.style.display = 'block'; // Ou o display original
+        addGuestButtonElem.style.display = 'inline-block'; // Ou o display original
+
+    } else if (canAddGuestsTodayByTime) { // Usuários normais, na Sexta-feira
+        guestNameInputElem.disabled = false;
+        guestIsGoalkeeperCheckboxElem.disabled = false;
+        addGuestButtonElem.disabled = false;
+        guestFridayMessageElem.style.display = 'none';
+
+        guestNameLabel.style.display = 'block';
+        guestIsGkGroup.style.display = 'flex';
+        guestNameInputElem.style.display = 'block';
+        addGuestButtonElem.style.display = 'inline-block';
+
+    } else { // Usuários normais, NÃO é Sexta-feira
+        guestNameInputElem.disabled = true;
+        guestIsGoalkeeperCheckboxElem.disabled = true;
+        addGuestButtonElem.disabled = true;
+        guestFridayMessageElem.textContent = "Adição de convidados permitida apenas às sextas-feiras.";
+        guestFridayMessageElem.style.display = 'block'; // Mostra mensagem de restrição
+
+        // Opcional: Esconder os campos em vez de apenas desabilitar
+        // guestNameLabel.style.display = 'none';
+        // guestIsGkGroup.style.display = 'none';
+        // guestNameInputElem.style.display = 'none';
+        // addGuestButtonElem.style.display = 'none';
     }
 }
 
@@ -665,11 +660,7 @@ if (addGuestButton) {
             return;
         }
         if (!isCurrentUserAdmin && !isListCurrentlyOpen()) {
-            displayGuestAddStatus("A lista de presença não está aberta para adicionar convidados no momento.", true);
-            return;
-        }
-        if (!isCurrentUserAdmin && !isItFridayInBrasilia()) {
-            displayGuestAddStatus("Convidados só podem ser adicionados às sextas-feiras por não-administradores.", true);
+            displayGuestAddStatus("A lista de presença não está aberta para adicionar convidados.", true);
             return;
         }
 
@@ -679,8 +670,16 @@ if (addGuestButton) {
             return;
         }
 
+        // NOVA VERIFICAÇÃO DE SEXTA-FEIRA PARA NÃO-ADMINS
+        if (!isCurrentUserAdmin && !isItFridayInBrasilia()) {
+            displayGuestAddStatus("Convidados só podem ser adicionados às sextas-feiras.", true);
+            return;
+        }
+
         const guestIsGoalkeeper = guestIsGoalkeeperCheckbox.checked;
-        const guestId = 'guest_' + database.ref().push().key;
+        // Gera um ID único para o convidado
+        const guestId = 'guest_' + database.ref().push().key; // Garante um ID mais único
+
         const currentUserNameForGuest = (currentUser && currentUser.displayName) ? currentUser.displayName : "Anfitrião";
 
         displayGuestAddStatus(`Adicionando ${guestName}...`, false);
@@ -693,10 +692,13 @@ if (addGuestButton) {
             const confirmedPlayers = currentListaFutebolData.jogadoresConfirmados || {};
             const waitingPlayers = currentListaFutebolData.listaEspera || {};
 
+            // Verifica se este anfitrião já adicionou um convidado com o mesmo nome (evitar duplicidade simples)
             const guestAlreadyExists = Object.values(confirmedPlayers).some(p => p.isGuest && p.name === guestName && p.addedByUid === currentUser.uid) ||
                 Object.values(waitingPlayers).some(p => p.isGuest && p.name === guestName && p.addedByUid === currentUser.uid);
             if (guestAlreadyExists) {
                 console.log("Convidado já adicionado por este usuário.");
+                // Para sinalizar ao callback que foi essa a razão do aborto
+                // Vamos retornar um objeto especial que não será escrito, mas pode ser inspecionado
                 return { _transaction_aborted_reason: "guest_exists" };
             }
 
@@ -710,12 +712,11 @@ if (addGuestButton) {
                 isGuest: true,
                 addedByUid: currentUser.uid,
                 addedByName: currentUserNameForGuest,
-                needsTolerance: false,
-                photoURL: null,
                 timestamp: firebase.database.ServerValue.TIMESTAMP
             };
 
             let actionTaken = null;
+
             if (guestIsGoalkeeper) {
                 if (numConfirmedGoalkeepers < MAX_GOALKEEPERS) {
                     confirmedPlayers[guestId] = guestPlayerData;
@@ -724,7 +725,7 @@ if (addGuestButton) {
                     waitingPlayers[guestId] = guestPlayerData;
                     actionTaken = 'guest_waiting_gk';
                 }
-            } else {
+            } else { // Convidado jogador de linha
                 if (numConfirmedFieldPlayers < MAX_FIELD_PLAYERS) {
                     confirmedPlayers[guestId] = guestPlayerData;
                     actionTaken = 'guest_confirmed_fp';
@@ -739,15 +740,18 @@ if (addGuestButton) {
                 currentListaFutebolData.listaEspera = waitingPlayers;
                 return currentListaFutebolData;
             } else {
-                return undefined;
+                // Não deve chegar aqui se a lógica de "guestAlreadyExists" estiver correta
+                return undefined; // Aborta se nenhuma ação foi tomada
             }
+
         }, (error, committed, snapshot) => {
             if (error) {
                 console.error("Transação para adicionar convidado falhou:", error);
                 displayGuestAddStatus("Erro ao adicionar convidado. Tente novamente.", true);
             } else if (!committed) {
-                const abortedData = snapshot.val();
-                if (abortedData && abortedData._transaction_aborted_reason === "guest_exists") {
+                // Se snapshot.val() tem nossa flag _transaction_aborted_reason
+                const abortedReason = snapshot.val()?._transaction_aborted_reason;
+                if (abortedReason === "guest_exists") {
                     displayGuestAddStatus("Você já adicionou um convidado com este nome.", true);
                 } else {
                     displayGuestAddStatus("Não foi possível adicionar o convidado (lista cheia ou conflito).", true);
@@ -755,6 +759,7 @@ if (addGuestButton) {
             } else {
                 const dataCommitted = snapshot.val();
                 let successMessage = "Convidado adicionado com sucesso!";
+                // Tenta encontrar o convidado para uma mensagem mais específica
                 if (dataCommitted.jogadoresConfirmados && dataCommitted.jogadoresConfirmados[guestId]) {
                     successMessage = `${guestName} (convidado) adicionado à lista principal!`;
                 } else if (dataCommitted.listaEspera && dataCommitted.listaEspera[guestId]) {
@@ -768,21 +773,14 @@ if (addGuestButton) {
     });
 }
 
+
 async function addToWaitingList(playerId, playerName, isGoalkeeper, dataToSet = null) {
     try {
-        const waitingData = dataToSet ? { ...dataToSet } : {
+        const waitingData = dataToSet ? dataToSet : {
             name: playerName,
             isGoalkeeper: isGoalkeeper,
             timestamp: firebase.database.ServerValue.TIMESTAMP
         };
-        if (!dataToSet || !dataToSet.timestamp) { // Garante timestamp do servidor se não estiver no dataToSet
-            waitingData.timestamp = firebase.database.ServerValue.TIMESTAMP;
-        }
-        // Garante que campos de convidado não sejam propagados indevidamente se dataToSet for de um convidado
-        // e esta função for chamada para um usuário normal (o que não deve acontecer com a lógica atual).
-        // Ou, se dataToSet for para um usuário normal, não deve ter campos de convidado.
-        // A lógica de quem chama esta função deve garantir a integridade de dataToSet.
-
         await waitingListRef.child(playerId).set(waitingData);
     } catch (error) {
         console.error("Erro ao adicionar à lista de espera:", error);
@@ -855,97 +853,76 @@ async function checkWaitingListAndPromote() {
     }
 }
 
+// --- Funções de Renderização da UI (Listas de Jogo) ---
 function renderPlayerListItem(player, index, listTypeIdentifier) {
     const li = document.createElement('li');
 
-    const avatarContainer = document.createElement('div');
-    avatarContainer.classList.add('player-avatar-container');
-    const avatarElement = document.createElement('div');
-    avatarElement.classList.add('player-avatar');
+    const playerTextInfo = document.createElement('div');
+    playerTextInfo.classList.add('player-text-info');
 
-    if (player.photoURL) {
-        const img = document.createElement('img');
-        img.src = player.photoURL;
-        img.alt = player.name.substring(0, 1);
-        img.onerror = function () {
-            this.parentElement.innerHTML = '<i class="fas fa-user-circle"></i>';
-        };
-        avatarElement.appendChild(img);
-    } else {
-        avatarElement.innerHTML = '<i class="fas fa-user-circle"></i>';
-    }
-    avatarContainer.appendChild(avatarElement);
-    li.appendChild(avatarContainer);
-
-    const detailsContainer = document.createElement('div');
-    detailsContainer.classList.add('player-details-container');
-
-    const nameMain = document.createElement('div');
-    nameMain.classList.add('player-name-main');
     const orderSpan = document.createElement('span');
     orderSpan.classList.add('player-order');
     orderSpan.textContent = `${index + 1}. `;
-    nameMain.appendChild(orderSpan);
-    nameMain.appendChild(document.createTextNode(player.name));
-    detailsContainer.appendChild(nameMain);
+    playerTextInfo.appendChild(orderSpan);
 
-    if (player.timestamp) {
-        const timestampElem = document.createElement('div');
-        timestampElem.classList.add('player-timestamp');
-        const date = new Date(player.timestamp);
-        timestampElem.textContent = `${String(date.getDate()).padStart(2, '0')}/${String(date.getMonth() + 1).padStart(2, '0')} ${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
-        detailsContainer.appendChild(timestampElem);
-    }
+    const nameSpan = document.createElement('span');
+    nameSpan.classList.add('player-name');
+    nameSpan.textContent = player.name;
+    playerTextInfo.appendChild(nameSpan);
 
-    const extraTagsContainer = document.createElement('div');
-    extraTagsContainer.classList.add('player-extra-tags');
-
+    // Tag de Goleiro e Convidado
     if (player.isGoalkeeper) {
         const gkIndicator = document.createElement('span');
-        gkIndicator.textContent = '(Goleiro)';
+        gkIndicator.classList.add('player-info');
+        gkIndicator.textContent = ' (Goleiro)';
+        // Não adiciona explicitamente "(Goleiro)" se já estiver na lista de goleiros confirmados
         if (listTypeIdentifier !== 'confirmed-gk') {
-            extraTagsContainer.appendChild(gkIndicator);
+            playerTextInfo.appendChild(gkIndicator);
         }
     }
+
+    // NOVO: INDICADOR DE TOLERÂNCIA
     if (player.needsTolerance === true) {
         const toleranceIndicator = document.createElement('span');
-        toleranceIndicator.classList.add('tolerance-tag');
-        toleranceIndicator.innerHTML = '<i class="far fa-clock"></i><span class="tolerance-text">(+10min)</span>';
-        toleranceIndicator.title = "Precisa de 10 minutos de tolerância";
-        extraTagsContainer.appendChild(toleranceIndicator);
+        toleranceIndicator.classList.add('player-info', 'tolerance-tag'); // player-info para espaçamento, tolerance-tag para estilo específico
+        toleranceIndicator.innerHTML = '<i class="far fa-clock"></i><span class="tolerance-text">(+10min)</span>'; // Ícone de relógio e texto
+        toleranceIndicator.title = "Precisa de 10 minutos de tolerância"; // Tooltip ao passar o mouse
+        playerTextInfo.appendChild(toleranceIndicator);
     }
+
     if (player.isGuest && player.addedByName) {
         const guestIndicator = document.createElement('span');
-        guestIndicator.classList.add('guest-tag');
-        guestIndicator.textContent = `(Convidado por: ${player.addedByName})`;
-        extraTagsContainer.appendChild(guestIndicator);
-    }
-    if (extraTagsContainer.hasChildNodes()) {
-        detailsContainer.appendChild(extraTagsContainer);
+        guestIndicator.classList.add('player-info', 'guest-tag'); // Nova classe 'guest-tag'
+        guestIndicator.textContent = ` (Convidado)`;
+        playerTextInfo.appendChild(guestIndicator);
     }
 
-    li.appendChild(detailsContainer);
 
+    li.appendChild(playerTextInfo);
+
+    // Lógica do Botão de Remover/Sair
     let showRemoveButton = false;
     let buttonText = "Sair";
-    let buttonIcon = "fas fa-sign-out-alt";
-    let buttonSpecificClass = "";
+    let buttonIcon = "fas fa-sign-out-alt"; // Ícone padrão para sair
+    let buttonClass = "remove-button"; // Classe padrão
 
     if (currentUser) {
         if (player.isGuest) {
+            // Admin pode remover qualquer convidado.
+            // O anfitrião (quem adicionou) pode remover seu próprio convidado.
             if (isCurrentUserAdmin || (player.addedByUid && player.addedByUid === currentUser.uid)) {
                 showRemoveButton = true;
                 buttonText = "Remover";
-                buttonIcon = "fas fa-user-minus";
-                buttonSpecificClass = "remove-guest-btn";
+                buttonIcon = "fas fa-user-minus"; // Ou fas fa-trash-alt
+                // buttonClass += " remove-guest-btn"; // Opcional: classe específica
             }
-        } else {
+        } else { // Jogador regular (não convidado)
             if (isCurrentUserAdmin || currentUser.uid === player.id) {
                 showRemoveButton = true;
                 if (isCurrentUserAdmin && currentUser.uid !== player.id) {
                     buttonText = "Remover";
                     buttonIcon = "fas fa-user-times";
-                    buttonSpecificClass = "admin-remove-player-btn";
+                    // buttonClass += " admin-remove-player-btn"; // Opcional
                 }
             }
         }
@@ -953,22 +930,23 @@ function renderPlayerListItem(player, index, listTypeIdentifier) {
 
     if (showRemoveButton) {
         const removeBtn = document.createElement('button');
-        removeBtn.classList.add('remove-button');
-        if (buttonSpecificClass) removeBtn.classList.add(buttonSpecificClass);
+        removeBtn.classList.add(buttonClass); // Usa a classe definida
         removeBtn.innerHTML = `<i class="${buttonIcon}"></i> ${buttonText}`;
 
-        if (buttonSpecificClass === "admin-remove-player-btn") {
-            removeBtn.style.backgroundColor = '#f39c12';
-        } else if (buttonSpecificClass === "remove-guest-btn") {
-            removeBtn.style.backgroundColor = '#d9534f';
+        if (buttonText === "Remover" && isCurrentUserAdmin && currentUser.uid !== player.id) {
+            removeBtn.style.backgroundColor = '#f39c12'; // Laranja para admin removendo outro
+        } else if (buttonText === "Remover" && (isCurrentUserAdmin || (player.addedByUid && player.addedByUid === currentUser.uid))) {
+            removeBtn.style.backgroundColor = '#d9534f'; // Vermelho para remover convidado
         }
+
+
         const listTypeForRemove = listTypeIdentifier.startsWith('confirmed') ? 'confirmed' : 'waiting';
+        // O player.id para convidados é o guestId gerado. Para usuários normais, é o UID deles.
         removeBtn.onclick = () => removePlayer(player.id, listTypeForRemove);
         li.appendChild(removeBtn);
     }
     return li;
 }
-
 function renderConfirmedLists(confirmedPlayersObject) {
     if (confirmedGoalkeepersListElement) confirmedGoalkeepersListElement.innerHTML = '';
     if (confirmedFieldPlayersListElement) confirmedFieldPlayersListElement.innerHTML = '';
@@ -1032,13 +1010,14 @@ function clearListsUI() {
     if (listStatusMessageElement) listStatusMessageElement.textContent = '';
 }
 
+// --- Funções para o Painel do Admin ---
 function renderAdminUserListItemForPanel(user, isConfirmed, isInWaitingList) {
     const li = document.createElement('li');
     li.classList.add('admin-user-item');
 
     const userInfoDiv = document.createElement('div');
     userInfoDiv.classList.add('admin-user-info');
-    userInfoDiv.innerHTML = `<strong>${user.name}</strong>`; // Removido UID da exibição
+    userInfoDiv.innerHTML = `<strong>${user.name}</strong>`;
 
     if (isConfirmed) {
         const badge = document.createElement('span');
@@ -1057,6 +1036,7 @@ function renderAdminUserListItemForPanel(user, isConfirmed, isInWaitingList) {
     actionsDiv.classList.add('admin-user-item-actions');
 
     if (!isConfirmed && !isInWaitingList) {
+        // ... (criação do gkLabel e isGoalkeeperCheckboxForAdmin permanece igual) ...
         const gkLabel = document.createElement('label');
         gkLabel.textContent = 'Goleiro? ';
         gkLabel.style.marginRight = '5px';
@@ -1067,31 +1047,31 @@ function renderAdminUserListItemForPanel(user, isConfirmed, isInWaitingList) {
         isGoalkeeperCheckboxForAdmin.id = `admin-add-gk-${user.id}`;
         isGoalkeeperCheckboxForAdmin.classList.add('admin-add-gk-checkbox');
         isGoalkeeperCheckboxForAdmin.style.verticalAlign = 'middle';
+
         gkLabel.htmlFor = isGoalkeeperCheckboxForAdmin.id;
 
-        // Checkbox de Tolerância para admin adicionar jogador
-        const needsToleranceLabelForAdmin = document.createElement('label');
-        needsToleranceLabelForAdmin.textContent = 'Tolerância? ';
-        needsToleranceLabelForAdmin.style.marginRight = '5px';
-        needsToleranceLabelForAdmin.style.fontSize = '0.9em';
+        const needsToleranceLabel = document.createElement('label');
+        needsToleranceLabel.textContent = '10 minutos? ';
+        needsToleranceLabel.style.marginRight = '5px';
+        needsToleranceLabel.style.fontSize = '0.9em';
 
         const needsToleranceCheckboxForAdmin = document.createElement('input');
         needsToleranceCheckboxForAdmin.type = 'checkbox';
-        needsToleranceCheckboxForAdmin.id = `admin-add-nt-${user.id}`; // ID único
-        needsToleranceCheckboxForAdmin.classList.add('admin-add-gk-checkbox'); // Reutiliza classe se visualmente similar
+        needsToleranceCheckboxForAdmin.id = `admin-add-nt-${user.id}`;
+        needsToleranceCheckboxForAdmin.classList.add('admin-add-gk-checkbox');
         needsToleranceCheckboxForAdmin.style.verticalAlign = 'middle';
-        needsToleranceLabelForAdmin.htmlFor = needsToleranceCheckboxForAdmin.id;
 
+        needsToleranceLabel.htmlFor = needsToleranceCheckboxForAdmin.id;
 
         const addButton = document.createElement('button');
-        addButton.innerHTML = '<i class="fas fa-user-plus"></i> Adicionar';
+        addButton.innerHTML = '<i class="fas fa-user-plus"></i> Adicionar'; // Adiciona o ícone
         addButton.classList.add('admin-add-button');
         addButton.onclick = () => adminAddPlayerToGame(user.id, user.name, isGoalkeeperCheckboxForAdmin.checked, needsToleranceCheckboxForAdmin.checked);
 
         actionsDiv.appendChild(gkLabel);
         actionsDiv.appendChild(isGoalkeeperCheckboxForAdmin);
-        actionsDiv.appendChild(needsToleranceLabelForAdmin); // Adiciona label de tolerância
-        actionsDiv.appendChild(needsToleranceCheckboxForAdmin); // Adiciona checkbox de tolerância
+        actionsDiv.appendChild(needsToleranceLabel);
+        actionsDiv.appendChild(needsToleranceCheckboxForAdmin);
         actionsDiv.appendChild(addButton);
     } else {
         const statusMsg = document.createElement('span');
@@ -1110,6 +1090,7 @@ async function adminAddPlayerToGame(playerId, playerName, isPlayerGoalkeeper, is
         return;
     }
     displayErrorMessage(`Adicionando ${playerName}...`);
+
     try {
         const confirmedSnapshot = await confirmedPlayersRef.once('value');
         const confirmedData = confirmedSnapshot.val() || {};
@@ -1124,15 +1105,10 @@ async function adminAddPlayerToGame(playerId, playerName, isPlayerGoalkeeper, is
             return;
         }
 
-        const userLoginDataSnapshot = await database.ref(`allUsersLogins/${playerId}`).once('value');
-        const userLoginData = userLoginDataSnapshot.val();
-        const photoURL = userLoginData?.photoURL || null;
-
         const playerData = {
             name: playerName,
             isGoalkeeper: isPlayerGoalkeeper,
             needsTolerance: isPlayerNeedsTolerance,
-            photoURL: photoURL,
             timestamp: firebase.database.ServerValue.TIMESTAMP
         };
 
@@ -1190,7 +1166,7 @@ function filterAndRenderAdminUserList(searchTerm = "") {
         }
     }).catch(error => {
         console.error("Erro ao buscar status dos jogadores (admin panel):", error);
-        if (adminAllUsersListElement) adminAllUsersListElement.innerHTML = '<li>Erro ao carregar status dos jogadores.</li>';
+        adminAllUsersListElement.innerHTML = '<li>Erro ao carregar status dos jogadores.</li>';
     });
 }
 
@@ -1224,19 +1200,21 @@ function loadAndRenderAllUsersListForAdmin() {
     });
 }
 
+// NOVA FUNÇÃO PARA POPULAR O FORMULÁRIO DE HORÁRIOS
 function populateScheduleForm(scheduleData) {
-    if (!isCurrentUserAdmin) return;
+    if (!isCurrentUserAdmin) return; // Segurança extra, mas a aba já controla isso
 
-    if (adminOpenDaySelect && scheduleData) adminOpenDaySelect.value = String(scheduleData.openDay);
-    if (adminOpenHourInput && scheduleData) adminOpenHourInput.value = String(scheduleData.openHour);
-    if (adminOpenMinuteInput && scheduleData) adminOpenMinuteInput.value = String(scheduleData.openMinute);
-    if (adminCloseDaySelect && scheduleData) adminCloseDaySelect.value = String(scheduleData.closeDay);
-    if (adminCloseHourInput && scheduleData) adminCloseHourInput.value = String(scheduleData.closeHour);
-    if (adminCloseMinuteInput && scheduleData) adminCloseMinuteInput.value = String(scheduleData.closeMinute);
+    if (adminOpenDaySelect) adminOpenDaySelect.value = String(scheduleData.openDay);
+    if (adminOpenHourInput) adminOpenHourInput.value = String(scheduleData.openHour);
+    if (adminOpenMinuteInput) adminOpenMinuteInput.value = String(scheduleData.openMinute);
+    if (adminCloseDaySelect) adminCloseDaySelect.value = String(scheduleData.closeDay);
+    if (adminCloseHourInput) adminCloseHourInput.value = String(scheduleData.closeHour);
+    if (adminCloseMinuteInput) adminCloseMinuteInput.value = String(scheduleData.closeMinute);
 }
 
+// --- Listeners do Firebase para Atualizações em Tempo Real (Listas de Jogo) ---
 function loadLists() {
-    if (scheduleConfigLoaded) updateListAvailabilityUI();
+    if (scheduleConfigLoaded) updateListAvailabilityUI(); // Atualiza status da lista baseado nas configs
 
     if (confirmedPlayersRef) {
         confirmedPlayersRef.on('value', snapshot => {
@@ -1248,7 +1226,7 @@ function loadLists() {
             }
         }, error => {
             console.error("Erro ao carregar lista de confirmados:", error);
-            if (displayErrorMessage) displayErrorMessage("Não foi possível carregar a lista de confirmados.");
+            displayErrorMessage("Não foi possível carregar a lista de confirmados.");
         });
     }
 
@@ -1263,7 +1241,7 @@ function loadLists() {
             }
         }, error => {
             console.error("Erro ao carregar lista de espera:", error);
-            if (displayErrorMessage) displayErrorMessage("Não foi possível carregar a lista de espera.");
+            displayErrorMessage("Não foi possível carregar a lista de espera.");
         });
     }
 }
@@ -1274,6 +1252,8 @@ if (saveScheduleButton) {
             displayErrorMessage("Apenas administradores podem salvar horários.");
             return;
         }
+
+        // Valida e coleta os dados do formulário
         const newSchedule = {
             openDay: parseInt(adminOpenDaySelect.value),
             openHour: parseInt(adminOpenHourInput.value),
@@ -1282,6 +1262,8 @@ if (saveScheduleButton) {
             closeHour: parseInt(adminCloseHourInput.value),
             closeMinute: parseInt(adminCloseMinuteInput.value)
         };
+
+        // Validação básica dos números
         let isValid = true;
         const fieldsToValidate = [
             { value: newSchedule.openHour, min: 0, max: 23, name: "Hora Abertura" },
@@ -1289,31 +1271,43 @@ if (saveScheduleButton) {
             { value: newSchedule.closeHour, min: 0, max: 23, name: "Hora Fechamento" },
             { value: newSchedule.closeMinute, min: 0, max: 59, name: "Minuto Fechamento" }
         ];
+
         for (const field of fieldsToValidate) {
             if (isNaN(field.value) || field.value < field.min || field.value > field.max) {
                 isValid = false;
                 if (scheduleSaveStatusElement) {
-                    scheduleSaveStatusElement.textContent = `Valor inválido para ${field.name}. Use ${field.min}-${field.max}.`;
+                    scheduleSaveStatusElement.textContent = `Valor inválido para ${field.name}. Use o intervalo ${field.min}-${field.max}.`;
                     scheduleSaveStatusElement.className = 'status-feedback error visible';
                 }
                 break;
             }
         }
+        // Validação dos dias (selects já são limitados, mas isNaN checa se algo deu muito errado)
         if (isNaN(newSchedule.openDay) || isNaN(newSchedule.closeDay)) isValid = false;
+
+
         if (!isValid) {
             setTimeout(() => { if (scheduleSaveStatusElement) { scheduleSaveStatusElement.textContent = ''; scheduleSaveStatusElement.classList.remove('visible', 'error'); } }, 4000);
             return;
         }
+
+        // Lógica de validação mais complexa (opcional):
+        // Ex: Dia/hora de fechamento deve ser após dia/hora de abertura (considerando a semana)
+        // Por simplicidade, não incluído aqui, mas seria uma boa adição.
+
         if (scheduleSaveStatusElement) {
             scheduleSaveStatusElement.textContent = "Salvando...";
             scheduleSaveStatusElement.className = 'status-feedback neutral visible';
         }
+
         try {
             await database.ref('scheduleSettings').set(newSchedule);
             if (scheduleSaveStatusElement) {
                 scheduleSaveStatusElement.textContent = "Horários salvos com sucesso!";
                 scheduleSaveStatusElement.className = 'status-feedback success visible';
             }
+            // O listener em fetchScheduleSettings já vai atualizar currentScheduleConfig
+            // e repopular o formulário, além de chamar updateListAvailabilityUI.
         } catch (error) {
             console.error("Erro ao salvar horários:", error);
             if (scheduleSaveStatusElement) {
@@ -1325,6 +1319,8 @@ if (saveScheduleButton) {
     });
 }
 
+
+// Adiciona listener para o campo de busca de admin
 if (adminSearchUserInput) {
     adminSearchUserInput.addEventListener('input', (e) => {
         if (isCurrentUserAdmin) {
@@ -1333,4 +1329,5 @@ if (adminSearchUserInput) {
     });
 }
 
+// --- Chamada Inicial para carregar configurações de horário ---
 fetchScheduleSettings();
