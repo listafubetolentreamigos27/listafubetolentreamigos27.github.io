@@ -334,9 +334,7 @@ auth.onAuthStateChanged(async user => {
         if (userInfo) userInfo.textContent = `Logado como: ${finalDisplayName || currentUser.email || "Usuário"}`;
         if (loginButton) loginButton.style.display = 'none';
         if (logoutButton) logoutButton.style.display = 'inline-block';
-
-        // Sua alteração intencional:
-        if (tabsContainer) tabsContainer.style.display = 'none';
+        if (tabsContainer) tabsContainer.style.display = 'block';
 
         const userLoginRef = database.ref(`allUsersLogins/${currentUser.uid}`);
         userLoginRef.set({
