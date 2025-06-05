@@ -84,6 +84,14 @@ let allUsersDataForAdminCache = [];
 let listStatusUpdateInterval = null;
 const LIST_STATUS_UPDATE_INTERVAL_MS = 20 * 1000;
 
+// --- Lógica da Lista de Presença (Firebase Refs) ---
+const confirmedPlayersRef = database.ref('listaFutebol/jogadoresConfirmados');
+const waitingListRef = database.ref('listaFutebol/listaEspera');
+
+if (maxGoalkeepersDisplaySpan) maxGoalkeepersDisplaySpan.textContent = MAX_GOALKEEPERS;
+if (maxFieldplayersDisplaySpan) maxFieldplayersDisplaySpan.textContent = MAX_FIELD_PLAYERS;
+
+
 // --- Lógica de Horário e Fuso Horário de Brasília ---
 function getCurrentBrasiliaDateTimeParts() {
     const nowUtc = new Date();
@@ -185,9 +193,9 @@ function updateListAvailabilityUI() {
     }
 }
 
-function isItFridayInBrasilia() {
+function isItFridayOrSaturdayInBrasilia() {
     const brasiliaTime = getCurrentBrasiliaDateTimeParts();
-    return brasiliaTime.dayOfWeek === 5; // Sexta-feira é 5 (Dom=0)
+    return brasiliaTime.dayOfWeek === 5 || brasiliaTime.dayOfWeek === 6;
 }
 
 function updateGuestAdditionAvailabilityUI() {
@@ -204,7 +212,7 @@ function updateGuestAdditionAvailabilityUI() {
         return;
     }
 
-    const canAddGuestsToday = isItFridayInBrasilia();
+    const canAddGuestsToday = isItFridayOrSaturdayInBrasilia();
 
     if (isCurrentUserAdmin) {
         guestNameInputElem.disabled = false;
@@ -302,7 +310,7 @@ auth.onAuthStateChanged(async user => {
                     console.log(`DisplayName divergente. Top-level: "${finalDisplayName}", ProviderData: "${googleInfo.displayName}".`);
                     finalDisplayName = googleInfo.displayName;
                     profileNeedsUpdate = true;
-                } else if (googleInfo.displayName) { // Se for igual ou se finalDisplayName era null
+                } else if (googleInfo.displayName) {
                     finalDisplayName = googleInfo.displayName || finalDisplayName;
                 }
 
@@ -310,7 +318,7 @@ auth.onAuthStateChanged(async user => {
                     console.log(`PhotoURL divergente.`);
                     finalPhotoURL = googleInfo.photoURL;
                     profileNeedsUpdate = true;
-                } else if (googleInfo.photoURL) { // Se for igual ou se finalPhotoURL era null
+                } else if (googleInfo.photoURL) {
                     finalPhotoURL = googleInfo.photoURL || finalPhotoURL;
                 }
 
@@ -334,7 +342,8 @@ auth.onAuthStateChanged(async user => {
         if (userInfo) userInfo.textContent = `Logado como: ${finalDisplayName || currentUser.email || "Usuário"}`;
         if (loginButton) loginButton.style.display = 'none';
         if (logoutButton) logoutButton.style.display = 'inline-block';
-        if (tabsContainer) tabsContainer.style.display = 'block';
+
+        if (tabsContainer) tabsContainer.style.display = 'block'; // REVERTIDO para 'block' conforme solicitado
 
         const userLoginRef = database.ref(`allUsersLogins/${currentUser.uid}`);
         userLoginRef.set({
@@ -529,13 +538,6 @@ async function checkAndPerformAdminAutoAdd() {
     }
 }
 
-// --- Lógica da Lista de Presença (Firebase Refs e Funções) ---
-const confirmedPlayersRef = database.ref('listaFutebol/jogadoresConfirmados');
-const waitingListRef = database.ref('listaFutebol/listaEspera');
-
-if (maxGoalkeepersDisplaySpan) maxGoalkeepersDisplaySpan.textContent = MAX_GOALKEEPERS;
-if (maxFieldplayersDisplaySpan) maxFieldplayersDisplaySpan.textContent = MAX_FIELD_PLAYERS;
-
 function displayErrorMessage(message) {
     if (errorMessageElement) {
         errorMessageElement.textContent = message;
@@ -674,7 +676,7 @@ if (addGuestButton) {
             displayGuestAddStatus("A lista de presença não está aberta para adicionar convidados no momento.", true);
             return;
         }
-        if (!isCurrentUserAdmin && !isItFridayInBrasilia()) {
+        if (!isCurrentUserAdmin && !isItFridayOrSaturdayInBrasilia()) {
             displayGuestAddStatus("Convidados só podem ser adicionados às sextas-feiras por não-administradores.", true);
             return;
         }
@@ -784,14 +786,12 @@ async function addToWaitingList(playerId, playerName, isGoalkeeper, dataToSet = 
         if (!dataToSet || !dataToSet.timestamp) {
             waitingData.timestamp = firebase.database.ServerValue.TIMESTAMP;
         }
-        // Garante que photoURL e needsTolerance são tratados se vierem de dataToSet
         if (dataToSet && typeof dataToSet.photoURL !== 'undefined' && !waitingData.hasOwnProperty('photoURL')) {
             waitingData.photoURL = dataToSet.photoURL;
         }
         if (dataToSet && typeof dataToSet.needsTolerance !== 'undefined' && !waitingData.hasOwnProperty('needsTolerance')) {
             waitingData.needsTolerance = dataToSet.needsTolerance;
         }
-
 
         await waitingListRef.child(playerId).set(waitingData);
     } catch (error) {
@@ -886,7 +886,7 @@ function renderPlayerListItem(player, index, listTypeIdentifier) {
     if (player.photoURL) {
         const img = document.createElement('img');
         img.src = player.photoURL;
-        img.alt = player.name.substring(0, 1);
+        img.alt = player.name ? player.name.substring(0, 1) : 'P';
         img.onerror = function () {
             this.parentElement.innerHTML = '<i class="fas fa-user-circle"></i>';
         };
@@ -902,9 +902,8 @@ function renderPlayerListItem(player, index, listTypeIdentifier) {
 
     const nameMain = document.createElement('div');
     nameMain.classList.add('player-name-display');
-    // A numeração da ordem foi removida para o layout estilo WhatsApp
-    // Se quiser de volta, adicione o 'orderSpan' aqui.
-    nameMain.textContent = player.name;
+    // Adicionando a numeração ao nome
+    nameMain.textContent = `${index + 1}. ${player.name || 'Nome Indisponível'}`;
     detailsContainer.appendChild(nameMain);
 
     if (player.timestamp) {
@@ -963,7 +962,7 @@ function renderPlayerListItem(player, index, listTypeIdentifier) {
                     buttonText = "";
                     buttonIcon = "fas fa-user-times";
                     buttonSpecificClass = "admin-remove-player-btn";
-                } else {
+                } else { // Auto-remoção
                     buttonText = "";
                 }
             }
@@ -972,21 +971,19 @@ function renderPlayerListItem(player, index, listTypeIdentifier) {
 
     if (showRemoveButton) {
         const removeBtn = document.createElement('button');
-        removeBtn.classList.add('remove-button');
+        removeBtn.classList.add('remove-button'); // Classe base
         if (buttonSpecificClass) removeBtn.classList.add(buttonSpecificClass);
 
         removeBtn.innerHTML = `<i class="${buttonIcon}"></i>`;
-        if (buttonText) {
-            // Se o botão tiver texto (atualmente configurado para não ter para economizar espaço)
-            // removeBtn.appendChild(document.createTextNode(` ${buttonText}`));
-        }
-        removeBtn.title = (buttonText === "Sair" || buttonIcon === "fas fa-sign-out-alt") ? "Sair da lista" : "Remover";
+        // O texto do botão foi removido para um visual mais limpo, mas o title permanece
+        removeBtn.title = (buttonIcon === "fas fa-sign-out-alt") ? "Sair da lista" : "Remover";
 
         if (buttonSpecificClass === "admin-remove-player-btn") {
             removeBtn.style.backgroundColor = '#f39c12';
         } else if (buttonSpecificClass === "remove-guest-btn") {
             removeBtn.style.backgroundColor = '#d9534f';
         }
+
         const listTypeForRemove = listTypeIdentifier.startsWith('confirmed') ? 'confirmed' : 'waiting';
         removeBtn.onclick = () => removePlayer(player.id, listTypeForRemove);
         li.appendChild(removeBtn);
@@ -1063,7 +1060,7 @@ function renderAdminUserListItemForPanel(user, isConfirmed, isInWaitingList) {
 
     const userInfoDiv = document.createElement('div');
     userInfoDiv.classList.add('admin-user-info');
-    userInfoDiv.innerHTML = `<strong>${user.name}</strong>`;
+    userInfoDiv.innerHTML = `<strong>${user.name || 'Nome Indisponível'}</strong>`;
 
     if (isConfirmed) {
         const badge = document.createElement('span');
@@ -1095,7 +1092,7 @@ function renderAdminUserListItemForPanel(user, isConfirmed, isInWaitingList) {
         gkLabel.htmlFor = isGoalkeeperCheckboxForAdmin.id;
 
         const needsToleranceLabelForAdmin = document.createElement('label');
-        needsToleranceLabelForAdmin.textContent = 'Tolerância? ';
+        needsToleranceLabelForAdmin.textContent = 'Tolerância? '; // Ajustado
         needsToleranceLabelForAdmin.style.marginRight = '5px';
         needsToleranceLabelForAdmin.style.fontSize = '0.9em';
 
@@ -1192,7 +1189,7 @@ function filterAndRenderAdminUserList(searchTerm = "") {
 
     const lowerSearchTerm = searchTerm.toLowerCase();
     const filteredUsers = allUsersDataForAdminCache.filter(user =>
-        user.name.toLowerCase().includes(lowerSearchTerm) || user.id.toLowerCase().includes(lowerSearchTerm)
+        (user.name || '').toLowerCase().includes(lowerSearchTerm) || (user.id || '').toLowerCase().includes(lowerSearchTerm)
     );
 
     Promise.all([
