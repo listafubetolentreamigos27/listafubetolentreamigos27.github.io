@@ -31,7 +31,8 @@ const loginButton = document.getElementById('login-button');
 const logoutButton = document.getElementById('logout-button');
 const userInfo = document.getElementById('user-info');
 const listStatusMessageElement = document.getElementById('list-status-message');
-const errorMessageElement = document.getElementById('error-message');
+const errorMessageElementGameLists = document.getElementById('error-message-game-lists');
+const errorMessageElementFinancial = document.getElementById('error-message-financial');
 
 // Abas
 const tabsContainer = document.querySelector('.tabs-container');
@@ -511,15 +512,30 @@ async function checkAndPerformAdminAutoAdd() {
 
 // --- Mensagens de Feedback ---
 function displayErrorMessage(message, isError = true, duration = 5000) {
-    if (errorMessageElement) {
-        errorMessageElement.textContent = message;
-        errorMessageElement.style.display = 'block';
-        errorMessageElement.className = `error-message ${isError ? 'error-active' : 'success-active'}`;
+    if (errorMessageElementGameLists) {
+        errorMessageElementGameLists.textContent = message;
+        errorMessageElementGameLists.style.display = 'block';
+        errorMessageElementGameLists.className = `error-message ${isError ? 'error-active' : 'success-active'}`;
         setTimeout(() => {
-            if (errorMessageElement) {
-                errorMessageElement.textContent = '';
-                errorMessageElement.style.display = 'none';
-                errorMessageElement.className = 'error-message';
+            if (errorMessageElementGameLists) {
+                errorMessageElementGameLists.textContent = '';
+                errorMessageElementGameLists.style.display = 'none';
+                errorMessageElementGameLists.className = 'error-message';
+            }
+        }, duration);
+    }
+}
+
+function displayErrorMessageFinancial(message, isError = true, duration = 5000) {
+    if (errorMessageElementFinancial) {
+        errorMessageElementFinancial.textContent = message;
+        errorMessageElementFinancial.style.display = 'block';
+        errorMessageElementFinancial.className = `error-message ${isError ? 'error-active' : 'success-active'}`;
+        setTimeout(() => {
+            if (errorMessageElementFinancial) {
+                errorMessageElementFinancial.textContent = '';
+                errorMessageElementFinancial.style.display = 'none';
+                errorMessageElementFinancial.className = 'error-message';
             }
         }, duration);
     }
@@ -1157,9 +1173,10 @@ function renderFinancialRow(uid, userData) {
     if (saldo > 0) tdBalance.classList.add('positive');
     const tdStars = document.createElement('td');
     tdStars.classList.add('col-stars', 'star-rating');
-    for (let i = 0; i < estrelas; i++) {
-        tdStars.innerHTML += '<i class="fas fa-star"></i> ';
-    }
+    tdStars.textContent = estrelas;
+    //for (let i = 0; i < estrelas; i++) {
+    //    tdStars.innerHTML += '<i class="fas fa-star"></i> ';
+    //}
     const tdActions = document.createElement('td');
     tdActions.classList.add('col-actions');
     if (isCurrentUserAdmin) {
@@ -1210,8 +1227,8 @@ async function saveFinancialData(uid) {
     const newStarsInput = row.querySelector('.col-stars input');
     const newBalance = parseFloat(newBalanceInput.value);
     const newStars = parseInt(newStarsInput.value, 10);
-    if (isNaN(newBalance) || isNaN(newStars) || newStars < 0 || newStars > 5) {
-        displayErrorMessage("Valores inválidos para saldo ou estrelas.", true);
+    if (isNaN(newBalance) || isNaN(newStars) || newStars < 5 || newStars > 10) {
+        displayErrorMessageFinancial("Valores inválidos para saldo ou estrelas.", true);
         return;
     }
     try {
@@ -1221,7 +1238,7 @@ async function saveFinancialData(uid) {
         });
     } catch (error) {
         console.error("Erro ao salvar dados financeiros:", error);
-        displayErrorMessage("Falha ao salvar. Verifique as permissões.", true);
+        displayErrorMessageFinancial("Falha ao salvar. Verifique as permissões.", true);
     }
 }
 
