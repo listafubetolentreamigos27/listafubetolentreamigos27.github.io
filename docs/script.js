@@ -1172,11 +1172,8 @@ function renderFinancialRow(uid, userData) {
     if (saldo < 0) tdBalance.classList.add('negative');
     if (saldo > 0) tdBalance.classList.add('positive');
     const tdStars = document.createElement('td');
-    tdStars.classList.add('col-stars', 'star-rating');
+    tdStars.classList.add('col-stars');
     tdStars.textContent = estrelas;
-    //for (let i = 0; i < estrelas; i++) {
-    //    tdStars.innerHTML += '<i class="fas fa-star"></i> ';
-    //}
     const tdActions = document.createElement('td');
     tdActions.classList.add('col-actions');
     if (isCurrentUserAdmin) {
@@ -1202,9 +1199,9 @@ function toggleEditModeFinancialRow(uid, isEditing) {
     const actionsCell = row.querySelector('.col-actions');
     if (isEditing) {
         const currentBalance = parseFloat(balanceCell.textContent.replace('R$', '').replace(/\./g, '').replace(',', '.')) || 0;
-        const currentStars = starsCell.getElementsByTagName('i').length;
+        const currentStars = parseFloat(starsCell.textContent.replace('R$', '').replace(/\./g, '').replace(',', '.')) || 5;
         balanceCell.innerHTML = `<input type="number" step="0.01" value="${currentBalance.toFixed(2)}">`;
-        starsCell.innerHTML = `<input type="number" min="0" max="5" value="${currentStars}">`;
+        starsCell.innerHTML = `<input type="number" min="5" max="10" step="0.5" value="${currentStars}">`;
         actionsCell.innerHTML = `
             <button class="action-button-small save-btn" onclick="saveFinancialData('${uid}')"><i class="fas fa-check"></i></button>
             <button class="action-button-small cancel-btn" onclick="toggleEditModeFinancialRow('${uid}', false)"><i class="fas fa-times"></i></button>
@@ -1226,7 +1223,7 @@ async function saveFinancialData(uid) {
     const newBalanceInput = row.querySelector('.col-balance input');
     const newStarsInput = row.querySelector('.col-stars input');
     const newBalance = parseFloat(newBalanceInput.value);
-    const newStars = parseInt(newStarsInput.value, 10);
+    const newStars = parseFloat(newStarsInput.value);
     if (isNaN(newBalance) || isNaN(newStars) || newStars < 5 || newStars > 10) {
         displayErrorMessageFinancial("Valores inválidos para saldo ou estrelas.", true);
         return;
