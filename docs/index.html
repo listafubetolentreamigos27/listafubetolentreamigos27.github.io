@@ -44,6 +44,7 @@
         <div class="tabs-container" style="display:none;">
             <div class="tab-buttons">
                 <button class="tab-button active" data-tab="tab-game-lists"><i class="fas fa-list-ul"></i> Listas do Jogo</button>
+                <button class="tab-button" data-tab="tab-financeiro"><i class="fas fa-dollar-sign"></i> Financeiro</button>
                 <button class="tab-button" data-tab="tab-admin-panel" id="admin-tab-button" style="display:none;"><i class="fas fa-user-shield"></i> Painel do Admin</button>
             </div>
 
@@ -84,6 +85,28 @@
                     <p><small>Jogadores removidos da lista principal após Sábado 13:00h.</small></p>
                     <ul id="penalty-list"></ul>
                     <button id="clear-penalty-list-button" class="admin-action-button" style="display:none; margin-top: 15px; background-color: #c0392b;"><i class="fas fa-trash-alt"></i> Limpar Lista de Multas</button>
+                </div>
+            </div>
+
+            <div class="tab-content" id="tab-financeiro">
+                <div class="list-section">
+                    <h2><i class="fas fa-wallet"></i> Controle Financeiro</h2>
+                    <p><small>O saldo de todos os jogadores. Saldo negativo impede a confirmação de presença. Apenas administradores podem editar.</small></p>
+                    <div class="financial-table-container">
+                        <table class="financial-table">
+                            <thead>
+                                <tr>
+                                    <th class="col-photo">Foto</th>
+                                    <th class="col-name">Nome</th>
+                                    <th class="col-balance">Saldo</th>
+                                    <th class="col-stars">Estrelas</th>
+                                    <th class="col-actions">Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody id="financial-list-body">
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
 

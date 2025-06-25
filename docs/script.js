@@ -82,6 +82,9 @@ const saveScheduleButton = document.getElementById('save-schedule-button');
 const scheduleSaveStatusElement = document.getElementById('schedule-save-status');
 const clearPenaltyListButton = document.getElementById('clear-penalty-list-button');
 
+// Painel Financeiro
+const financialListBody = document.getElementById('financial-list-body');
+
 // --- Estado do Usuário e Admin ---
 let currentUser = null;
 let isCurrentUserAdmin = false;
@@ -93,6 +96,7 @@ const LIST_STATUS_UPDATE_INTERVAL_MS = 20 * 1000;
 const confirmedPlayersRef = database.ref('listaFutebol/jogadoresConfirmados');
 const waitingListRef = database.ref('listaFutebol/listaEspera');
 const penaltyListRef = database.ref('listaFutebol/jogadoresMultados');
+const allUsersLoginsRef = database.ref('allUsersLogins');
 
 if (maxGoalkeepersDisplaySpan) maxGoalkeepersDisplaySpan.textContent = MAX_GOALKEEPERS;
 if (maxFieldplayersDisplaySpan) maxFieldplayersDisplaySpan.textContent = MAX_FIELD_PLAYERS;
@@ -202,16 +206,16 @@ function updateListAvailabilityUI() {
     }
 }
 
-function isItFridayOrSaturdayInBrasilia() { // RENOMEADA E ATUALIZADA
+function isItFridayOrSaturdayInBrasilia() {
     const brasiliaTime = getCurrentBrasiliaDateTimeParts();
-    return brasiliaTime.dayOfWeek === 5 || brasiliaTime.dayOfWeek === 6; // 5 = Sexta, 6 = Sábado
+    return brasiliaTime.dayOfWeek === 5 || brasiliaTime.dayOfWeek === 6;
 }
 
 function updateGuestAdditionAvailabilityUI() {
     const guestNameInputElem = guestNameInput;
     const guestIsGoalkeeperCheckboxElem = guestIsGoalkeeperCheckbox;
     const addGuestButtonElem = addGuestButton;
-    const guestDayMessageElem = guestFridayMessageElement; // Reutilizando, mas a mensagem muda
+    const guestDayMessageElem = guestFridayMessageElement;
     const guestNameLabel = document.querySelector('.guest-controls .form-group label[for="guest-name"]');
     const guestIsGkGroup = document.querySelector('.guest-controls .controls .form-group-inline');
 
@@ -219,8 +223,7 @@ function updateGuestAdditionAvailabilityUI() {
         console.warn("Elementos da UI de convidado não encontrados para updateGuestAdditionAvailabilityUI.");
         return;
     }
-
-    const canAddGuestsToday = isItFridayOrSaturdayInBrasilia(); // USA A NOVA FUNÇÃO
+    const canAddGuestsToday = isItFridayOrSaturdayInBrasilia();
 
     if (isCurrentUserAdmin) {
         guestNameInputElem.disabled = false;
@@ -244,7 +247,7 @@ function updateGuestAdditionAvailabilityUI() {
         guestNameInputElem.disabled = true;
         guestIsGoalkeeperCheckboxElem.disabled = true;
         addGuestButtonElem.disabled = true;
-        guestDayMessageElem.textContent = "Adição de convidados permitida apenas às sextas e sábados."; // MENSAGEM ATUALIZADA
+        guestDayMessageElem.textContent = "Adição de convidados permitida apenas às sextas e sábados.";
         guestDayMessageElem.style.display = 'block';
     }
 }
@@ -268,7 +271,7 @@ function fetchScheduleSettings() {
             populateScheduleForm(currentScheduleConfig);
             checkAndPerformAdminAutoAdd();
         } else if (currentUser) {
-            // Nada específico para não-admin aqui
+            // Nada
         }
 
         if (listStatusUpdateInterval) clearInterval(listStatusUpdateInterval);
@@ -298,10 +301,8 @@ auth.onAuthStateChanged(async user => {
     if (user) {
         let userObjectToUse = user;
         try {
-            console.log("onAuthStateChanged - Tentando user.reload() para perfil atualizado...");
             await userObjectToUse.reload();
             userObjectToUse = auth.currentUser;
-            console.log("user.reload() bem-sucedido. displayName atual (antes de providerData):", userObjectToUse.displayName);
         } catch (error) {
             console.error("Erro durante user.reload():", error);
         }
@@ -315,33 +316,26 @@ auth.onAuthStateChanged(async user => {
             if (googleInfo) {
                 let profileNeedsUpdate = false;
                 if (googleInfo.displayName && googleInfo.displayName !== finalDisplayName) {
-                    console.log(`DisplayName divergente. Top-level: "${finalDisplayName}", ProviderData: "${googleInfo.displayName}".`);
                     finalDisplayName = googleInfo.displayName;
                     profileNeedsUpdate = true;
                 } else if (googleInfo.displayName) {
                     finalDisplayName = googleInfo.displayName || finalDisplayName;
                 }
-
                 if (googleInfo.photoURL && googleInfo.photoURL !== finalPhotoURL) {
-                    console.log(`PhotoURL divergente.`);
                     finalPhotoURL = googleInfo.photoURL;
                     profileNeedsUpdate = true;
                 } else if (googleInfo.photoURL) {
                     finalPhotoURL = googleInfo.photoURL || finalPhotoURL;
                 }
-
                 if (profileNeedsUpdate) {
                     try {
                         await userObjectToUse.updateProfile({ displayName: finalDisplayName, photoURL: finalPhotoURL });
                         userObjectToUse = auth.currentUser;
                         finalDisplayName = userObjectToUse.displayName;
                         finalPhotoURL = userObjectToUse.photoURL;
-                        console.log("Perfil do Firebase atualizado. Novo displayName:", finalDisplayName, "Nova photoURL:", finalPhotoURL);
                     } catch (updateError) {
                         console.error("Erro ao atualizar o perfil do Firebase:", updateError);
                     }
-                } else {
-                    console.log("DisplayName e PhotoURL do providerData consistentes com top-level ou já atualizados.");
                 }
             }
         }
@@ -351,29 +345,32 @@ auth.onAuthStateChanged(async user => {
         if (loginButton) loginButton.style.display = 'none';
         if (logoutButton) logoutButton.style.display = 'inline-block';
 
-        if (tabsContainer) tabsContainer.style.display = 'block'; // REVERTIDO PARA 'block'
+        if (tabsContainer) tabsContainer.style.display = 'block';
 
         const userLoginRef = database.ref(`allUsersLogins/${currentUser.uid}`);
-        userLoginRef.set({
-            name: finalDisplayName || "Usuário Anônimo",
-            photoURL: finalPhotoURL || null,
-            lastLogin: firebase.database.ServerValue.TIMESTAMP
-        }).catch(error => {
-            console.error("Erro ao salvar informações de login do usuário:", error);
+        userLoginRef.transaction(currentData => {
+            if (currentData === null) {
+                return {
+                    name: finalDisplayName || "Usuário Anônimo",
+                    photoURL: finalPhotoURL || null,
+                    lastLogin: firebase.database.ServerValue.TIMESTAMP,
+                    saldo: 0,
+                    estrelas: 0
+                };
+            } else {
+                currentData.name = finalDisplayName || "Usuário Anônimo";
+                currentData.photoURL = finalPhotoURL || null;
+                currentData.lastLogin = firebase.database.ServerValue.TIMESTAMP;
+                return currentData;
+            }
         });
 
         const adminStatusRef = database.ref(`admins/${currentUser.uid}`);
         try {
             const snapshot = await adminStatusRef.once('value');
             isCurrentUserAdmin = snapshot.exists() && snapshot.val() === true;
-            console.log("Status de Admin:", isCurrentUserAdmin);
-
-            if (adminTabButton) {
-                adminTabButton.style.display = isCurrentUserAdmin ? 'inline-block' : 'none';
-            }
+            if (adminTabButton) adminTabButton.style.display = isCurrentUserAdmin ? 'inline-block' : 'none';
             if (clearPenaltyListButton) clearPenaltyListButton.style.display = isCurrentUserAdmin ? 'inline-flex' : 'none';
-
-
             if (isCurrentUserAdmin) {
                 loadAndRenderAllUsersListForAdmin();
                 if (scheduleConfigLoaded) populateScheduleForm(currentScheduleConfig);
@@ -386,15 +383,11 @@ auth.onAuthStateChanged(async user => {
                 if (adminAllUsersListElement) adminAllUsersListElement.innerHTML = '';
                 allUsersDataForAdminCache = [];
             }
-
             updateGuestAdditionAvailabilityUI();
             loadLists();
-
             if (scheduleConfigLoaded) {
                 updateListAvailabilityUI();
-                if (isCurrentUserAdmin) {
-                    checkAndPerformAdminAutoAdd();
-                }
+                if (isCurrentUserAdmin) checkAndPerformAdminAutoAdd();
             }
         } catch (error) {
             console.error("Erro ao verificar admin:", error);
@@ -405,7 +398,6 @@ auth.onAuthStateChanged(async user => {
             loadLists();
             if (scheduleConfigLoaded) updateListAvailabilityUI();
         }
-
     } else {
         isCurrentUserAdmin = false;
         currentUser = null;
@@ -424,7 +416,6 @@ auth.onAuthStateChanged(async user => {
         if (confirmPresenceButton) confirmPresenceButton.disabled = true;
         if (isGoalkeeperCheckbox) isGoalkeeperCheckbox.checked = false;
         if (needsToleranceCheckbox) needsToleranceCheckbox.checked = false;
-
         clearListsUI();
         if (adminAllUsersListElement) adminAllUsersListElement.innerHTML = '';
         allUsersDataForAdminCache = [];
@@ -455,7 +446,10 @@ if (tabButtons && tabContents) {
             const targetTabId = button.getAttribute('data-tab');
             const targetContent = document.getElementById(targetTabId);
             if (targetContent) targetContent.classList.add('active');
-            if (targetTabId === 'tab-admin-panel' && isCurrentUserAdmin) {
+
+            if (targetTabId === 'tab-financeiro') {
+                loadAndRenderFinancialData();
+            } else if (targetTabId === 'tab-admin-panel' && isCurrentUserAdmin) {
                 if (scheduleConfigLoaded) populateScheduleForm(currentScheduleConfig);
                 if (adminSearchUserInput) filterAndRenderAdminUserList(adminSearchUserInput.value);
             }
@@ -465,8 +459,6 @@ if (tabButtons && tabContents) {
 
 async function checkAndPerformAdminAutoAdd() {
     if (!isCurrentUserAdmin || !scheduleConfigLoaded || !isListCurrentlyOpen()) {
-        if (!scheduleConfigLoaded) console.log("Auto-add: Horários não carregados.");
-        else if (!isListCurrentlyOpen()) console.log("Auto-add: Lista não está aberta.");
         return;
     }
     const currentCycleTimestamp = getMostRecentListOpenTimestamp();
@@ -482,7 +474,6 @@ async function checkAndPerformAdminAutoAdd() {
             const adminsSnapshot = await database.ref('admins').once('value');
             const adminUidsMap = adminsSnapshot.val();
             if (!adminUidsMap) {
-                console.log("Nenhum admin configurado em /admins.");
                 await scheduleStateRef.set(currentCycleTimestamp);
                 return;
             }
@@ -490,7 +481,7 @@ async function checkAndPerformAdminAutoAdd() {
 
             const [confirmedSnapshot, allLoginsSnapshot] = await Promise.all([
                 confirmedPlayersRef.once('value'),
-                database.ref('allUsersLogins').once('value')
+                allUsersLoginsRef.once('value')
             ]);
 
             let confirmedPlayers = confirmedSnapshot.val() || {};
@@ -565,13 +556,26 @@ function displayErrorMessage(message, isError = true, duration = 5000) {
     }
 }
 
-confirmPresenceButton.addEventListener('click', () => {
+confirmPresenceButton.addEventListener('click', async () => {
     if (!currentUser) {
         displayErrorMessage("Você precisa estar logado para confirmar presença.", true);
         return;
     }
     if (!isCurrentUserAdmin && !isListCurrentlyOpen()) {
         displayErrorMessage("A lista de presença não está aberta no momento.", true);
+        return;
+    }
+    try {
+        const userFinancialsSnapshot = await allUsersLoginsRef.child(currentUser.uid).once('value');
+        const userData = userFinancialsSnapshot.val();
+        const saldo = userData?.saldo ?? 0;
+        if (saldo < 0 && !isCurrentUserAdmin) {
+            displayErrorMessage("Seu saldo está negativo! Por favor, acerte o valor para confirmar presença.", true);
+            return;
+        }
+    } catch (e) {
+        console.error("Erro ao verificar saldo:", e);
+        displayErrorMessage("Não foi possível verificar seu saldo. Tente novamente.", true);
         return;
     }
 
@@ -582,7 +586,7 @@ confirmPresenceButton.addEventListener('click', () => {
     const playerPhotoURLForTransaction = (currentUser && currentUser.photoURL) ? currentUser.photoURL : null;
 
     const listaFutebolRef = database.ref('listaFutebol');
-    displayErrorMessage("Processando sua confirmação...", false, 2000); // Mensagem de processando
+    displayErrorMessage("Processando sua confirmação...", false, 2000);
 
     listaFutebolRef.transaction((currentListaFutebolData) => {
         if (currentListaFutebolData === null) {
@@ -820,7 +824,6 @@ async function removePlayer(playerId, listType) {
     }
     try {
         let playerDataForPenalty = null;
-        // Captura os dados ANTES de remover, se for da lista de confirmados
         if (listType === 'confirmed') {
             const playerSnapshot = await confirmedPlayersRef.child(playerId).once('value');
             playerDataForPenalty = playerSnapshot.val();
@@ -830,11 +833,10 @@ async function removePlayer(playerId, listType) {
             await confirmedPlayersRef.child(playerId).remove();
             displayErrorMessage("Jogador removido da lista principal.", false);
 
-            // Lógica de Multa
-            if (playerDataForPenalty && !playerDataForPenalty.isGuest) { // Não multar convidados
+            if (playerDataForPenalty && !playerDataForPenalty.isGuest) {
                 const brasiliaTime = getCurrentBrasiliaDateTimeParts();
-                const isSaturday = brasiliaTime.dayOfWeek === 6; // Sábado
-                const isAfterPenaltyTime = brasiliaTime.hour >= 13; // 13:00 ou depois
+                const isSaturday = brasiliaTime.dayOfWeek === 6;
+                const isAfterPenaltyTime = brasiliaTime.hour >= 13;
 
                 if (isSaturday && isAfterPenaltyTime) {
                     const penaltyEntry = {
@@ -844,11 +846,10 @@ async function removePlayer(playerId, listType) {
                         isGoalkeeper: playerDataForPenalty.isGoalkeeper || false,
                         needsTolerance: playerDataForPenalty.needsTolerance || false,
                         removalTimestamp: firebase.database.ServerValue.TIMESTAMP,
-                        removedByUid: currentUser.uid, // Quem efetivamente clicou em remover
+                        removedByUid: currentUser.uid,
                         removedByName: currentUser.displayName || "Usuário Anônimo"
                     };
-                    // Usar um ID único para a entrada na lista de multas para evitar sobrescrita se o mesmo jogador sair várias vezes
-                    const penaltyEntryId = playerId + "_" + Date.now(); // Ou usar Firebase push().key
+                    const penaltyEntryId = playerId + "_" + Date.now();
                     await penaltyListRef.child(penaltyEntryId).set(penaltyEntry);
                     console.log(`Jogador ${playerDataForPenalty.name} adicionado à lista de multas.`);
                     displayErrorMessage(`${playerDataForPenalty.name} foi para a lista de multas (saída tardia).`, false, 7000);
@@ -871,39 +872,30 @@ async function checkWaitingListAndPromote() {
         const confirmedSnapshot = await confirmedPlayersRef.once('value');
         const confirmedPlayersData = confirmedSnapshot.val() || {};
         const confirmedPlayersArray = Object.values(confirmedPlayersData);
-
         const numConfirmedGoalkeepers = confirmedPlayersArray.filter(p => p.isGoalkeeper).length;
         const numConfirmedFieldPlayers = confirmedPlayersArray.filter(p => !p.isGoalkeeper).length;
-
         const waitingSnapshot = await waitingListRef.orderByChild('timestamp').once('value');
         const waitingPlayersData = waitingSnapshot.val();
-
         if (!waitingPlayersData) return;
-
         const waitingPlayersArray = Object.entries(waitingPlayersData)
             .map(([id, data]) => ({ id, ...data }))
             .sort((a, b) => a.timestamp - b.timestamp);
-
         for (const playerToPromote of waitingPlayersArray) {
             let promoted = false;
             if (playerToPromote.isGoalkeeper) {
                 if (numConfirmedGoalkeepers < MAX_GOALKEEPERS) {
                     await confirmedPlayersRef.child(playerToPromote.id).set(playerToPromote);
                     await waitingListRef.child(playerToPromote.id).remove();
-                    console.log(`Goleiro ${playerToPromote.name} promovido.`);
                     promoted = true;
                 }
             } else {
                 if (numConfirmedFieldPlayers < MAX_FIELD_PLAYERS) {
                     await confirmedPlayersRef.child(playerToPromote.id).set(playerToPromote);
                     await waitingListRef.child(playerToPromote.id).remove();
-                    console.log(`Jogador de linha ${playerToPromote.name} promovido.`);
                     promoted = true;
                 }
             }
-            if (promoted) {
-                break;
-            }
+            if (promoted) break;
         }
     } catch (error) {
         console.error("Erro ao promover jogador:", error);
@@ -913,12 +905,10 @@ async function checkWaitingListAndPromote() {
 
 function renderPlayerListItem(player, index, listTypeIdentifier) {
     const li = document.createElement('li');
-
     const avatarContainer = document.createElement('div');
     avatarContainer.classList.add('player-avatar-container');
     const avatarElement = document.createElement('div');
     avatarElement.classList.add('player-avatar');
-
     if (player.photoURL) {
         const img = document.createElement('img');
         img.src = player.photoURL;
@@ -935,10 +925,8 @@ function renderPlayerListItem(player, index, listTypeIdentifier) {
 
     const detailsContainer = document.createElement('div');
     detailsContainer.classList.add('player-details-main');
-
     const nameMain = document.createElement('div');
     nameMain.classList.add('player-name-display');
-    // Adicionando a numeração ao nome (REINSERIDO)
     nameMain.textContent = `${index + 1}. ${player.name || 'Nome Indisponível'}`;
     detailsContainer.appendChild(nameMain);
 
@@ -958,13 +946,10 @@ function renderPlayerListItem(player, index, listTypeIdentifier) {
 
     const extraTagsContainer = document.createElement('div');
     extraTagsContainer.classList.add('player-additional-tags');
-
     if (player.isGoalkeeper) {
         const gkIndicator = document.createElement('span');
         gkIndicator.textContent = '(Goleiro)';
-        if (listTypeIdentifier !== 'confirmed-gk') {
-            extraTagsContainer.appendChild(gkIndicator);
-        }
+        if (listTypeIdentifier !== 'confirmed-gk') extraTagsContainer.appendChild(gkIndicator);
     }
     if (player.needsTolerance === true) {
         const toleranceIndicator = document.createElement('span');
@@ -985,18 +970,15 @@ function renderPlayerListItem(player, index, listTypeIdentifier) {
         removedByIndicator.textContent = player.removedByUid === player.id ? `(Saiu por conta própria)` : `(Removido por: ${player.removedByName})`;
         extraTagsContainer.appendChild(removedByIndicator);
     }
-
     if (extraTagsContainer.hasChildNodes()) {
         detailsContainer.appendChild(extraTagsContainer);
     }
-
     li.appendChild(detailsContainer);
 
     let showRemoveButton = false;
     let buttonText = "Sair";
     let buttonIcon = "fas fa-sign-out-alt";
     let buttonSpecificClass = "";
-
     if (currentUser && listTypeIdentifier !== 'penalty') {
         if (player.isGuest) {
             if (isCurrentUserAdmin || (player.addedByUid && player.addedByUid === currentUser.uid)) {
@@ -1018,21 +1000,17 @@ function renderPlayerListItem(player, index, listTypeIdentifier) {
             }
         }
     }
-
     if (showRemoveButton) {
         const removeBtn = document.createElement('button');
         removeBtn.classList.add('remove-button');
         if (buttonSpecificClass) removeBtn.classList.add(buttonSpecificClass);
-
         removeBtn.innerHTML = `<i class="${buttonIcon}"></i>`;
         removeBtn.title = (buttonIcon === "fas fa-sign-out-alt") ? "Sair da lista" : "Remover";
-
         if (buttonSpecificClass === "admin-remove-player-btn") {
             removeBtn.style.backgroundColor = '#f39c12';
         } else if (buttonSpecificClass === "remove-guest-btn") {
             removeBtn.style.backgroundColor = '#d9534f';
         }
-
         const listTypeForRemove = listTypeIdentifier.startsWith('confirmed') ? 'confirmed' : 'waiting';
         removeBtn.onclick = () => removePlayer(player.id, listTypeForRemove);
         li.appendChild(removeBtn);
@@ -1043,33 +1021,24 @@ function renderPlayerListItem(player, index, listTypeIdentifier) {
 function renderConfirmedLists(confirmedPlayersObject) {
     if (confirmedGoalkeepersListElement) confirmedGoalkeepersListElement.innerHTML = '';
     if (confirmedFieldPlayersListElement) confirmedFieldPlayersListElement.innerHTML = '';
-
     if (!confirmedPlayersObject) {
         if (confirmedGkCountSpan) confirmedGkCountSpan.textContent = 0;
         if (confirmedFpCountSpan) confirmedFpCountSpan.textContent = 0;
         return;
     }
-
     const allConfirmedArray = Object.entries(confirmedPlayersObject)
         .map(([id, data]) => ({ id, ...data }))
         .sort((a, b) => a.timestamp - b.timestamp);
-
     const goalkeepers = [];
     const fieldPlayers = [];
-
     allConfirmedArray.forEach(player => {
-        if (player.isGoalkeeper) {
-            goalkeepers.push(player);
-        } else {
-            fieldPlayers.push(player);
-        }
+        if (player.isGoalkeeper) goalkeepers.push(player);
+        else fieldPlayers.push(player);
     });
-
     goalkeepers.forEach((player, index) => {
         if (confirmedGoalkeepersListElement) confirmedGoalkeepersListElement.appendChild(renderPlayerListItem(player, index, 'confirmed-gk'));
     });
     if (confirmedGkCountSpan) confirmedGkCountSpan.textContent = goalkeepers.length;
-
     fieldPlayers.forEach((player, index) => {
         if (confirmedFieldPlayersListElement) confirmedFieldPlayersListElement.appendChild(renderPlayerListItem(player, index, 'confirmed-fp'));
     });
@@ -1082,11 +1051,9 @@ function renderWaitingList(waitingPlayersObject) {
         if (waitingCountSpan) waitingCountSpan.textContent = 0;
         return;
     }
-
     const waitingArray = Object.entries(waitingPlayersObject)
         .map(([id, data]) => ({ id, ...data }))
         .sort((a, b) => a.timestamp - b.timestamp);
-
     waitingArray.forEach((player, index) => {
         if (waitingListElement) waitingListElement.appendChild(renderPlayerListItem(player, index, 'waiting'));
     });
@@ -1099,11 +1066,9 @@ function renderPenaltyList(penaltyPlayersObject) {
         if (penaltyCountSpan) penaltyCountSpan.textContent = 0;
         return;
     }
-
     const penaltyArray = Object.entries(penaltyPlayersObject)
         .map(([id, data]) => ({ id, ...data }))
         .sort((a, b) => (b.removalTimestamp || 0) - (a.removalTimestamp || 0));
-
     penaltyArray.forEach((player, index) => {
         if (penaltyListElement) penaltyListElement.appendChild(renderPlayerListItem(player, index, 'penalty'));
     });
@@ -1125,11 +1090,9 @@ function clearListsUI() {
 function renderAdminUserListItemForPanel(user, isConfirmed, isInWaitingList) {
     const li = document.createElement('li');
     li.classList.add('admin-user-item');
-
     const userInfoDiv = document.createElement('div');
     userInfoDiv.classList.add('admin-user-info');
     userInfoDiv.innerHTML = `<strong>${user.name || 'Nome Indisponível'}</strong>`;
-
     if (isConfirmed) {
         const badge = document.createElement('span');
         badge.className = 'status-badge confirmed-badge';
@@ -1142,16 +1105,13 @@ function renderAdminUserListItemForPanel(user, isConfirmed, isInWaitingList) {
         userInfoDiv.appendChild(badge);
     }
     li.appendChild(userInfoDiv);
-
     const actionsDiv = document.createElement('div');
     actionsDiv.classList.add('admin-user-item-actions');
-
     if (!isConfirmed && !isInWaitingList) {
         const gkLabel = document.createElement('label');
         gkLabel.textContent = 'Goleiro? ';
         gkLabel.style.marginRight = '5px';
         gkLabel.style.fontSize = '0.9em';
-
         const isGoalkeeperCheckboxForAdmin = document.createElement('input');
         isGoalkeeperCheckboxForAdmin.type = 'checkbox';
         isGoalkeeperCheckboxForAdmin.id = `admin-add-gk-${user.id}`;
@@ -1163,7 +1123,6 @@ function renderAdminUserListItemForPanel(user, isConfirmed, isInWaitingList) {
         needsToleranceLabelForAdmin.textContent = 'Tolerância? ';
         needsToleranceLabelForAdmin.style.marginRight = '5px';
         needsToleranceLabelForAdmin.style.fontSize = '0.9em';
-
         const needsToleranceCheckboxForAdmin = document.createElement('input');
         needsToleranceCheckboxForAdmin.type = 'checkbox';
         needsToleranceCheckboxForAdmin.id = `admin-add-nt-${user.id}`;
@@ -1175,7 +1134,6 @@ function renderAdminUserListItemForPanel(user, isConfirmed, isInWaitingList) {
         addButton.innerHTML = '<i class="fas fa-user-plus"></i> Adicionar';
         addButton.classList.add('admin-add-button');
         addButton.onclick = () => adminAddPlayerToGame(user.id, user.name, isGoalkeeperCheckboxForAdmin.checked, needsToleranceCheckboxForAdmin.checked);
-
         actionsDiv.appendChild(gkLabel);
         actionsDiv.appendChild(isGoalkeeperCheckboxForAdmin);
         actionsDiv.appendChild(needsToleranceLabelForAdmin);
@@ -1203,7 +1161,6 @@ async function adminAddPlayerToGame(playerId, playerName, isPlayerGoalkeeper, is
         const confirmedData = confirmedSnapshot.val() || {};
         const waitingSnapshot = await waitingListRef.once('value');
         const waitingData = waitingSnapshot.val() || {};
-
         if (confirmedData[playerId] || waitingData[playerId]) {
             displayErrorMessage(`${playerName} já está em uma das listas.`, true);
             if (isCurrentUserAdmin && document.getElementById('tab-admin-panel')?.classList.contains('active')) {
@@ -1211,11 +1168,9 @@ async function adminAddPlayerToGame(playerId, playerName, isPlayerGoalkeeper, is
             }
             return;
         }
-
-        const userLoginDataSnapshot = await database.ref(`allUsersLogins/${playerId}`).once('value');
+        const userLoginDataSnapshot = await allUsersLoginsRef.child(playerId).once('value');
         const userLoginData = userLoginDataSnapshot.val();
         const photoURLForAdd = userLoginData?.photoURL || null;
-
         const playerData = {
             name: playerName,
             isGoalkeeper: isPlayerGoalkeeper,
@@ -1223,11 +1178,9 @@ async function adminAddPlayerToGame(playerId, playerName, isPlayerGoalkeeper, is
             photoURL: photoURLForAdd,
             timestamp: firebase.database.ServerValue.TIMESTAMP
         };
-
         const confirmedArray = Object.values(confirmedData);
         const numGkConfirmed = confirmedArray.filter(p => p.isGoalkeeper).length;
         const numFpConfirmed = confirmedArray.filter(p => !p.isGoalkeeper).length;
-
         if (isPlayerGoalkeeper) {
             if (numGkConfirmed < MAX_GOALKEEPERS) {
                 await confirmedPlayersRef.child(playerId).set(playerData);
@@ -1254,19 +1207,16 @@ async function adminAddPlayerToGame(playerId, playerName, isPlayerGoalkeeper, is
 function filterAndRenderAdminUserList(searchTerm = "") {
     if (!adminAllUsersListElement || !isCurrentUserAdmin) return;
     adminAllUsersListElement.innerHTML = '';
-
     const lowerSearchTerm = searchTerm.toLowerCase();
     const filteredUsers = allUsersDataForAdminCache.filter(user =>
         (user.name || '').toLowerCase().includes(lowerSearchTerm) || (user.id || '').toLowerCase().includes(lowerSearchTerm)
     );
-
     Promise.all([
         confirmedPlayersRef.once('value'),
         waitingListRef.once('value')
     ]).then(([confirmedSnapshot, waitingSnapshot]) => {
         const confirmedPlayers = confirmedSnapshot.val() || {};
         const waitingPlayers = waitingSnapshot.val() || {};
-
         if (filteredUsers.length > 0) {
             filteredUsers.forEach(user => {
                 const isConfirmed = !!confirmedPlayers[user.id];
@@ -1288,15 +1238,12 @@ function loadAndRenderAllUsersListForAdmin() {
         allUsersDataForAdminCache = [];
         return;
     }
-
-    const allUsersLoginsRef = database.ref('allUsersLogins');
     allUsersLoginsRef.orderByChild('lastLogin').on('value', snapshot => {
         const usersData = snapshot.val();
         if (usersData) {
             allUsersDataForAdminCache = Object.entries(usersData)
                 .map(([id, data]) => ({ id, ...data }))
                 .sort((a, b) => b.lastLogin - a.lastLogin);
-
             const adminPanelTab = document.getElementById('tab-admin-panel');
             if (adminPanelTab && adminPanelTab.classList.contains('active')) {
                 filterAndRenderAdminUserList(adminSearchUserInput ? adminSearchUserInput.value : "");
@@ -1314,13 +1261,138 @@ function loadAndRenderAllUsersListForAdmin() {
 
 function populateScheduleForm(scheduleData) {
     if (!isCurrentUserAdmin) return;
-
     if (adminOpenDaySelect && scheduleData) adminOpenDaySelect.value = String(scheduleData.openDay);
     if (adminOpenHourInput && scheduleData) adminOpenHourInput.value = String(scheduleData.openHour);
     if (adminOpenMinuteInput && scheduleData) adminOpenMinuteInput.value = String(scheduleData.openMinute);
     if (adminCloseDaySelect && scheduleData) adminCloseDaySelect.value = String(scheduleData.closeDay);
     if (adminCloseHourInput && scheduleData) adminCloseHourInput.value = String(scheduleData.closeHour);
     if (adminCloseMinuteInput && scheduleData) adminCloseMinuteInput.value = String(scheduleData.closeMinute);
+}
+
+function loadAndRenderFinancialData() {
+    if (!financialListBody) return;
+
+    allUsersLoginsRef.orderByChild('name').on('value', snapshot => {
+        financialListBody.innerHTML = '';
+        const users = snapshot.val();
+        if (users) {
+            Object.entries(users).forEach(([uid, userData]) => {
+                const tr = renderFinancialRow(uid, userData);
+                financialListBody.appendChild(tr);
+            });
+        }
+    }, error => {
+        console.error("Erro ao carregar dados financeiros:", error);
+        financialListBody.innerHTML = '<tr><td colspan="5">Erro ao carregar dados.</td></tr>';
+    });
+}
+
+function renderFinancialRow(uid, userData) {
+    const tr = document.createElement('tr');
+    tr.id = `financial-row-${uid}`;
+
+    const saldo = userData.saldo ?? 0;
+    const estrelas = userData.estrelas ?? 0;
+
+    const tdPhoto = document.createElement('td');
+    tdPhoto.classList.add('col-photo');
+    const avatar = document.createElement('div');
+    avatar.classList.add('player-avatar');
+    if (userData.photoURL) {
+        avatar.innerHTML = `<img src="${userData.photoURL}" alt="Avatar">`;
+    } else {
+        avatar.innerHTML = '<i class="fas fa-user-circle"></i>';
+    }
+    tdPhoto.appendChild(avatar);
+
+    const tdName = document.createElement('td');
+    tdName.classList.add('col-name', 'player-name-financial');
+    tdName.textContent = userData.name || 'Nome não encontrado';
+
+    const tdBalance = document.createElement('td');
+    tdBalance.classList.add('col-balance', 'player-balance');
+    tdBalance.textContent = saldo.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+    if (saldo < 0) tdBalance.classList.add('negative');
+    if (saldo > 0) tdBalance.classList.add('positive');
+
+    const tdStars = document.createElement('td');
+    tdStars.classList.add('col-stars', 'star-rating');
+    for (let i = 0; i < estrelas; i++) {
+        tdStars.innerHTML += '<i class="fas fa-star"></i> ';
+    }
+
+    const tdActions = document.createElement('td');
+    tdActions.classList.add('col-actions');
+    if (isCurrentUserAdmin) {
+        const editButton = document.createElement('button');
+        editButton.innerHTML = '<i class="fas fa-edit"></i> Editar';
+        editButton.classList.add('action-button-small', 'edit-btn');
+        editButton.onclick = () => toggleEditModeFinancialRow(uid, true);
+        tdActions.appendChild(editButton);
+    }
+
+    tr.appendChild(tdPhoto);
+    tr.appendChild(tdName);
+    tr.appendChild(tdBalance);
+    tr.appendChild(tdStars);
+    tr.appendChild(tdActions);
+    return tr;
+}
+
+function toggleEditModeFinancialRow(uid, isEditing) {
+    const row = document.getElementById(`financial-row-${uid}`);
+    if (!row) return;
+
+    const balanceCell = row.querySelector('.col-balance');
+    const starsCell = row.querySelector('.col-stars');
+    const actionsCell = row.querySelector('.col-actions');
+
+    if (isEditing) {
+        const currentBalance = parseFloat(balanceCell.textContent.replace('R$', '').replace(/\./g, '').replace(',', '.')) || 0;
+        const currentStars = starsCell.getElementsByTagName('i').length;
+
+        balanceCell.innerHTML = `<input type="number" step="0.01" value="${currentBalance.toFixed(2)}">`;
+        starsCell.innerHTML = `<input type="number" min="0" max="5" value="${currentStars}">`;
+
+        actionsCell.innerHTML = `
+            <button class="action-button-small save-btn" onclick="saveFinancialData('${uid}')"><i class="fas fa-check"></i></button>
+            <button class="action-button-small cancel-btn" onclick="toggleEditModeFinancialRow('${uid}', false)"><i class="fas fa-times"></i></button>
+        `;
+    } else {
+        allUsersLoginsRef.child(uid).once('value', snapshot => {
+            const userData = snapshot.val();
+            if (userData) {
+                const freshRow = renderFinancialRow(uid, userData);
+                row.parentNode.replaceChild(freshRow, row);
+            }
+        });
+    }
+}
+
+async function saveFinancialData(uid) {
+    const row = document.getElementById(`financial-row-${uid}`);
+    if (!row) return;
+
+    const newBalanceInput = row.querySelector('.col-balance input');
+    const newStarsInput = row.querySelector('.col-stars input');
+
+    const newBalance = parseFloat(newBalanceInput.value);
+    const newStars = parseInt(newStarsInput.value, 10);
+
+    if (isNaN(newBalance) || isNaN(newStars) || newStars < 0 || newStars > 5) {
+        displayErrorMessage("Valores inválidos para saldo ou estrelas.", true);
+        return;
+    }
+
+    try {
+        await allUsersLoginsRef.child(uid).update({
+            saldo: newBalance,
+            estrelas: newStars
+        });
+    } catch (error) {
+        console.error("Erro ao salvar dados financeiros:", error);
+        displayErrorMessage("Falha ao salvar. Verifique as permissões.", true);
+    }
 }
 
 function loadLists() {
@@ -1354,7 +1426,7 @@ function loadLists() {
             if (displayErrorMessage) displayErrorMessage("Não foi possível carregar a lista de espera.", true);
         });
     }
-    // Listener para a lista de multas
+
     if (penaltyListRef) {
         penaltyListRef.on('value', snapshot => {
             const players = snapshot.val();
@@ -1429,21 +1501,18 @@ if (clearPenaltyListButton) {
             displayErrorMessage("Apenas administradores podem limpar esta lista.", true);
             return;
         }
-        // Usar um modal customizado em vez de confirm()
-        // Por agora, vamos simular o confirm com um log e prosseguir
-        console.log("Tentativa de limpar lista de multas. Implementar modal de confirmação.");
-        // if (confirm("Tem certeza que deseja LIMPAR TODA a lista de jogadores multados? Esta ação não pode ser desfeita.")) {
-        try {
-            await penaltyListRef.remove();
-            displayErrorMessage("Lista de multas limpa com sucesso!", false);
-        } catch (error) {
-            console.error("Erro ao limpar lista de multas:", error);
-            displayErrorMessage("Falha ao limpar a lista de multas.", true);
+        // Usar um modal customizado no futuro seria ideal
+        if (window.confirm("Tem certeza que deseja LIMPAR TODA a lista de jogadores multados? Esta ação não pode ser desfeita.")) {
+            try {
+                await penaltyListRef.remove();
+                displayErrorMessage("Lista de multas limpa com sucesso!", false);
+            } catch (error) {
+                console.error("Erro ao limpar lista de multas:", error);
+                displayErrorMessage("Falha ao limpar a lista de multas.", true);
+            }
         }
-        // }
     });
 }
-
 
 if (adminSearchUserInput) {
     adminSearchUserInput.addEventListener('input', (e) => {
