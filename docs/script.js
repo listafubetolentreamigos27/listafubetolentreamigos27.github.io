@@ -1199,7 +1199,7 @@ function toggleEditModeFinancialRow(uid, isEditing) {
     const actionsCell = row.querySelector('.col-actions');
     if (isEditing) {
         const currentBalance = parseFloat(balanceCell.textContent.replace('R$', '').replace(/\./g, '').replace(',', '.')) || 0;
-        const currentStars = parseFloat(starsCell.textContent.replace('R$', '').replace(/\./g, '').replace(',', '.')) || 5;
+        const currentStars = parseFloat(starsCell.textContent) || 5;
         balanceCell.innerHTML = `<input type="number" step="0.01" value="${currentBalance.toFixed(2)}">`;
         starsCell.innerHTML = `<input type="number" min="5" max="10" step="0.5" value="${currentStars}">`;
         actionsCell.innerHTML = `
