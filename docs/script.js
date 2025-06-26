@@ -386,7 +386,7 @@ auth.onAuthStateChanged(async user => {
 
             if (scheduleConfigLoaded) {
                 updateListAvailabilityUI();
-                if (isCurrentUserAdmin) checkAndPerformAdminAutoAdd();
+                checkAndPerformAdminAutoAdd();
             }
         } catch (error) {
             console.error("Erro ao verificar admin:", error);
@@ -458,7 +458,7 @@ if (tabButtons && tabContents) {
 
 // --- Adição Automática de Admins ---
 async function checkAndPerformAdminAutoAdd() {
-    if (!isCurrentUserAdmin || !scheduleConfigLoaded || !isListCurrentlyOpen()) return;
+    if (!scheduleConfigLoaded || !isListCurrentlyOpen()) return;
     const currentCycleTimestamp = getMostRecentListOpenTimestamp();
     const scheduleStateRef = database.ref('scheduleState/lastAdminAutoAddCycleTimestamp');
 
