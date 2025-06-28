@@ -18,6 +18,8 @@ const database = firebase.database();
 // --- Constantes de Configuração da Lista ---
 const MAX_FIELD_PLAYERS = 20;
 const MAX_GOALKEEPERS = 4;
+const VALOR_JOGO = 3;
+const VALOR_MULTA_SAIDA_TARDIA = 3;
 
 // --- Configurações do Horário da Lista ---
 let currentScheduleConfig = {
@@ -125,9 +127,7 @@ function formatPlayerTimestamp(timestamp) {
 function isListCurrentlyOpen() {
     if (!scheduleConfigLoaded) return false;
     const brasiliaTime = getCurrentBrasiliaDateTimeParts();
-    const currentDay = brasiliaTime.dayOfWeek;
-    const currentHour = brasiliaTime.hour;
-    const currentMinute = brasiliaTime.minute;
+    const { dayOfWeek: currentDay, hour: currentHour, minute: currentMinute } = brasiliaTime;
 
     if (currentDay === currentScheduleConfig.openDay) {
         return currentHour > currentScheduleConfig.openHour || (currentHour === currentScheduleConfig.openHour && currentMinute >= currentScheduleConfig.openMinute);
@@ -217,10 +217,8 @@ function updateGuestAdditionAvailabilityUI() {
     const guestIsGkGroup = document.querySelector('.guest-controls .controls .form-group-inline');
 
     if (!guestNameInputElem || !guestIsGoalkeeperCheckboxElem || !addGuestButtonElem || !guestDayMessageElem || !guestNameLabel || !guestIsGkGroup) {
-        console.warn("Elementos da UI de convidado não encontrados para updateGuestAdditionAvailabilityUI.");
         return;
     }
-
     const canAddGuestsToday = isItFridayOrSaturdayInBrasilia();
 
     if (isCurrentUserAdmin) {
@@ -257,7 +255,6 @@ function fetchScheduleSettings() {
         const settings = snapshot.val();
         if (settings && typeof settings.openDay === 'number' && typeof settings.openHour === 'number') {
             currentScheduleConfig = settings;
-            console.log("Configurações de horário carregadas/atualizadas:", currentScheduleConfig);
         } else {
             console.warn("Config. de horário não encontradas ou inválidas. Usando padrões.");
         }
@@ -267,8 +264,6 @@ function fetchScheduleSettings() {
         if (currentUser && isCurrentUserAdmin) {
             populateScheduleForm(currentScheduleConfig);
             checkAndPerformAdminAutoAdd();
-        } else if (currentUser) {
-            // Nada específico para não-admin aqui
         }
 
         if (listStatusUpdateInterval) clearInterval(listStatusUpdateInterval);
@@ -303,11 +298,9 @@ auth.onAuthStateChanged(async user => {
         } catch (error) {
             console.error("Erro durante user.reload():", error);
         }
-
         let finalDisplayName = userObjectToUse.displayName;
         let finalPhotoURL = userObjectToUse.photoURL;
         const providerData = userObjectToUse.providerData;
-
         if (providerData && providerData.length > 0) {
             const googleInfo = providerData.find(p => p.providerId === 'google.com');
             if (googleInfo) {
@@ -337,7 +330,6 @@ auth.onAuthStateChanged(async user => {
             }
         }
         currentUser = userObjectToUse;
-
         if (userInfo) userInfo.textContent = `Logado como: ${finalDisplayName || currentUser.email || "Usuário"}`;
         if (loginButton) loginButton.style.display = 'none';
         if (logoutButton) logoutButton.style.display = 'inline-block';
@@ -367,7 +359,6 @@ auth.onAuthStateChanged(async user => {
             isCurrentUserAdmin = snapshot.exists() && snapshot.val() === true;
             if (adminTabButton) adminTabButton.style.display = isCurrentUserAdmin ? 'inline-block' : 'none';
             if (clearPenaltyListButton) clearPenaltyListButton.style.display = isCurrentUserAdmin ? 'inline-flex' : 'none';
-
             if (isCurrentUserAdmin) {
                 loadAndRenderAllUsersListForAdmin();
                 if (scheduleConfigLoaded) populateScheduleForm(currentScheduleConfig);
@@ -380,10 +371,8 @@ auth.onAuthStateChanged(async user => {
                 if (adminAllUsersListElement) adminAllUsersListElement.innerHTML = '';
                 allUsersDataForAdminCache = [];
             }
-
             updateGuestAdditionAvailabilityUI();
             loadLists();
-
             if (scheduleConfigLoaded) {
                 updateListAvailabilityUI();
                 checkAndPerformAdminAutoAdd();
@@ -456,16 +445,14 @@ if (tabButtons && tabContents) {
     });
 }
 
-// --- Adição Automática de Admins ---
+// --- Funções de Lógica Principal ---
 async function checkAndPerformAdminAutoAdd() {
     if (!scheduleConfigLoaded || !isListCurrentlyOpen()) return;
     const currentCycleTimestamp = getMostRecentListOpenTimestamp();
     const scheduleStateRef = database.ref('scheduleState/lastAdminAutoAddCycleTimestamp');
-
     try {
         const snapshot = await scheduleStateRef.once('value');
         const lastCycleTimestamp = snapshot.val() || 0;
-
         if (currentCycleTimestamp > lastCycleTimestamp) {
             console.log("Novo ciclo, adicionando admins...");
             const adminsSnapshot = await database.ref('admins').once('value');
@@ -510,7 +497,6 @@ async function checkAndPerformAdminAutoAdd() {
     }
 }
 
-// --- Mensagens de Feedback ---
 function displayErrorMessage(message, isError = true, duration = 5000) {
     if (errorMessageElementGameLists) {
         errorMessageElementGameLists.textContent = message;
@@ -541,15 +527,62 @@ function displayErrorMessageFinancial(message, isError = true, duration = 5000) 
     }
 }
 
-function displayGuestAddStatus(message, isError = false) {
-    if (guestAddStatusElement) {
-        guestAddStatusElement.textContent = message;
-        guestAddStatusElement.className = `status-feedback ${isError ? 'error' : 'success'} visible`;
-        setTimeout(() => { if (guestAddStatusElement) { guestAddStatusElement.textContent = ''; guestAddStatusElement.classList.remove('visible', 'error', 'success'); } }, 4000);
+
+async function saveDiscountPlayerFinance(uid) {
+    if (!uid) return;
+    const userFinancialsRef = allUsersLoginsRef.child(uid);
+    try {
+        await userFinancialsRef.transaction((currentData) => {
+            if (currentData) {
+                currentData.saldo = (currentData.saldo || 0) - VALOR_JOGO;
+                return currentData;
+            }
+            return currentData;
+        });
+        console.log(`Debitado R$${VALOR_JOGO} do saldo de ${uid}.`);
+    } catch (error) {
+        console.error("Erro ao debitar valor do jogo:", error);
+        displayErrorMessage("Erro ao atualizar seu saldo financeiro.", true);
     }
 }
 
-// --- Lógica de Confirmação de Presença e Listas ---
+async function refundPlayerBalance(uid) {
+    if (!uid) return;
+    const userFinancialsRef = allUsersLoginsRef.child(uid);
+    try {
+        await userFinancialsRef.transaction((currentData) => {
+            if (currentData) {
+                currentData.saldo = (currentData.saldo || 0) + VALOR_JOGO;
+                return currentData;
+            }
+            return currentData;
+        });
+        displayErrorMessage("Valor do jogo estornado ao seu saldo.", false);
+    } catch (error) {
+        console.error("Erro ao estornar valor do jogo:", error);
+        displayErrorMessage("Erro ao estornar valor do seu saldo.", true);
+    }
+}
+
+async function applyLateRemovalPenalty(uid) {
+    if (!uid) return;
+    const userFinancialsRef = allUsersLoginsRef.child(uid);
+    try {
+        await userFinancialsRef.transaction((currentData) => {
+            if (currentData) {
+                currentData.saldo = (currentData.saldo || 0) - VALOR_MULTA_SAIDA_TARDIA;
+                return currentData;
+            }
+            return currentData;
+        });
+        const penaltyValueStr = VALOR_MULTA_SAIDA_TARDIA.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+        displayErrorMessage(`Multa de ${penaltyValueStr} aplicada por saída tardia.`, true, 7000);
+    } catch (error) {
+        console.error("Erro ao aplicar multa:", error);
+        displayErrorMessage("Erro ao aplicar multa ao seu saldo.", true);
+    }
+}
+
 confirmPresenceButton.addEventListener('click', async () => {
     if (!currentUser) {
         displayErrorMessage("Você precisa estar logado para confirmar presença.", true);
@@ -559,21 +592,24 @@ confirmPresenceButton.addEventListener('click', async () => {
         displayErrorMessage("A lista de presença não está aberta no momento.", true);
         return;
     }
-    try {
-        const userFinancialsSnapshot = await allUsersLoginsRef.child(currentUser.uid).once('value');
-        const userData = userFinancialsSnapshot.val();
-        const saldo = userData?.saldo ?? 0;
-        if (saldo < 0 && !isCurrentUserAdmin) {
-            displayErrorMessage("Seu saldo está negativo! Por favor, acerte o valor para confirmar presença.", true);
+    const isGoalkeeperForTransaction = isGoalkeeperCheckbox.checked;
+
+    if (!isGoalkeeperForTransaction) { // Só verifica saldo se não for goleiro
+        try {
+            const userFinancialsSnapshot = await allUsersLoginsRef.child(currentUser.uid).once('value');
+            const userData = userFinancialsSnapshot.val();
+            const saldo = userData?.saldo ?? 0;
+            if (saldo < VALOR_JOGO && !isCurrentUserAdmin) {
+                displayErrorMessage(`Seu saldo de ${saldo.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })} é insuficiente. É necessário ter pelo menos ${VALOR_JOGO.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })} para confirmar presença.`, true, 7000);
+                return;
+            }
+        } catch (e) {
+            console.error("Erro ao verificar saldo:", e);
+            displayErrorMessage("Não foi possível verificar seu saldo. Tente novamente.", true);
             return;
         }
-    } catch (e) {
-        console.error("Erro ao verificar saldo:", e);
-        displayErrorMessage("Não foi possível verificar seu saldo. Tente novamente.", true);
-        return;
     }
 
-    const isGoalkeeperForTransaction = isGoalkeeperCheckbox.checked;
     const needsToleranceForTransaction = needsToleranceCheckbox.checked;
     const playerIdForTransaction = currentUser.uid;
     const playerNameForTransaction = (currentUser && currentUser.displayName) ? currentUser.displayName : "Jogador Anônimo";
@@ -586,24 +622,26 @@ confirmPresenceButton.addEventListener('click', async () => {
         if (currentListaFutebolData === null) currentListaFutebolData = { jogadoresConfirmados: {}, listaEspera: {} };
         const confirmedPlayers = currentListaFutebolData.jogadoresConfirmados || {};
         const waitingPlayers = currentListaFutebolData.listaEspera || {};
-        if (confirmedPlayers[playerIdForTransaction] || waitingPlayers[playerIdForTransaction]) {
-            return undefined;
-        }
+        if (confirmedPlayers[playerIdForTransaction] || waitingPlayers[playerIdForTransaction]) return undefined;
         const confirmedPlayersArray = Object.values(confirmedPlayers);
         const numConfirmedGoalkeepers = confirmedPlayersArray.filter(p => p.isGoalkeeper).length;
         const numConfirmedFieldPlayers = confirmedPlayersArray.filter(p => !p.isGoalkeeper).length;
         const playerData = { name: playerNameForTransaction, isGoalkeeper: isGoalkeeperForTransaction, needsTolerance: needsToleranceForTransaction, photoURL: playerPhotoURLForTransaction, timestamp: firebase.database.ServerValue.TIMESTAMP };
         let madeChange = false;
+        let wasAddedToConfirmed = false;
         if (isGoalkeeperForTransaction) {
-            if (numConfirmedGoalkeepers < MAX_GOALKEEPERS) { confirmedPlayers[playerIdForTransaction] = playerData; madeChange = true; }
+            if (numConfirmedGoalkeepers < MAX_GOALKEEPERS) { confirmedPlayers[playerIdForTransaction] = playerData; madeChange = true; wasAddedToConfirmed = true; }
             else { waitingPlayers[playerIdForTransaction] = playerData; madeChange = true; }
         } else {
-            if (numConfirmedFieldPlayers < MAX_FIELD_PLAYERS) { confirmedPlayers[playerIdForTransaction] = playerData; madeChange = true; }
+            if (numConfirmedFieldPlayers < MAX_FIELD_PLAYERS) { confirmedPlayers[playerIdForTransaction] = playerData; madeChange = true; wasAddedToConfirmed = true; }
             else { waitingPlayers[playerIdForTransaction] = playerData; madeChange = true; }
         }
         if (madeChange) {
             currentListaFutebolData.jogadoresConfirmados = confirmedPlayers;
             currentListaFutebolData.listaEspera = waitingPlayers;
+            if (wasAddedToConfirmed && !isGoalkeeperForTransaction && !isCurrentUserAdmin) {
+                currentListaFutebolData._transaction_debit_user = playerIdForTransaction;
+            }
             return currentListaFutebolData;
         }
         return undefined;
@@ -614,21 +652,24 @@ confirmPresenceButton.addEventListener('click', async () => {
         } else if (!committed) {
             database.ref(`listaFutebol/jogadoresConfirmados/${playerIdForTransaction}`).once('value', sConfirm => {
                 database.ref(`listaFutebol/listaEspera/${playerIdForTransaction}`).once('value', sWait => {
-                    if (sConfirm.exists() || sWait.exists()) displayErrorMessage("Você já está na lista ou na espera (verificado no servidor).", true);
-                    else displayErrorMessage("Não foi possível confirmar. Vagas podem ter sido preenchidas ou houve um conflito.", true);
+                    if (sConfirm.exists() || sWait.exists()) displayErrorMessage("Você já está na lista ou na espera.", true);
+                    else displayErrorMessage("Não foi possível confirmar. Vagas podem ter sido preenchidas.", true);
                 });
             });
         } else {
-            console.log("Confirmação processada com sucesso.");
             const dataCommitted = snapshot.val();
+            if (dataCommitted?._transaction_debit_user === playerIdForTransaction) {
+                saveDiscountPlayerFinance(playerIdForTransaction);
+                database.ref('listaFutebol/_transaction_debit_user').remove();
+            }
             if (dataCommitted?.jogadoresConfirmados?.[playerIdForTransaction]) {
                 const p = dataCommitted.jogadoresConfirmados[playerIdForTransaction];
-                displayErrorMessage(`${p.name}, presença ${p.isGoalkeeper ? 'como goleiro(a)' : ''} confirmada!`, false);
+                displayErrorMessage(`${p.name}, presença confirmada!`, false);
             } else if (dataCommitted?.listaEspera?.[playerIdForTransaction]) {
                 const p = dataCommitted.listaEspera[playerIdForTransaction];
-                displayErrorMessage(`${p.name}, você foi adicionado(a) à lista de espera.`, false);
+                displayErrorMessage(`${p.name}, você foi para a lista de espera.`, false);
             } else {
-                displayErrorMessage("Sua solicitação foi processada com sucesso!", false);
+                displayErrorMessage("Sua solicitação foi processada!", false);
             }
         }
         if (isGoalkeeperCheckbox) isGoalkeeperCheckbox.checked = false;
@@ -707,10 +748,12 @@ async function removePlayer(playerId, listType) {
         }
         if (listType === 'confirmed') {
             await confirmedPlayersRef.child(playerId).remove();
-            displayErrorMessage("Jogador removido da lista principal.", false);
-            if (playerDataForPenalty && !playerDataForPenalty.isGuest) {
+            displayErrorMessage("Jogador removido da lista principal.", false, 3000);
+            if (playerDataForPenalty && !playerDataForPenalty.isGuest && !playerDataForPenalty.isGoalkeeper) {
                 const brasiliaTime = getCurrentBrasiliaDateTimeParts();
-                if (brasiliaTime.dayOfWeek === 6 && brasiliaTime.hour >= 13) {
+                const isSaturday = brasiliaTime.dayOfWeek === 6;
+                const isAfterPenaltyTime = brasiliaTime.hour >= 13 && brasiliaTime.hour <= 16 && brasiliaTime.minute <= 30;
+                if (isSaturday && isAfterPenaltyTime) {
                     const penaltyEntry = {
                         name: playerDataForPenalty.name,
                         photoURL: playerDataForPenalty.photoURL || null,
@@ -723,7 +766,9 @@ async function removePlayer(playerId, listType) {
                     };
                     const penaltyEntryId = playerId + "_" + Date.now();
                     await penaltyListRef.child(penaltyEntryId).set(penaltyEntry);
-                    displayErrorMessage(`${playerDataForPenalty.name} foi para a lista de multas (saída tardia).`, false, 7000);
+                    await applyLateRemovalPenalty(playerId);
+                } else {
+                    await refundPlayerBalance(playerId);
                 }
             }
             await checkWaitingListAndPromote();
@@ -741,31 +786,41 @@ async function checkWaitingListAndPromote() {
     try {
         const confirmedSnapshot = await confirmedPlayersRef.once('value');
         const confirmedPlayersData = confirmedSnapshot.val() || {};
-        const confirmedPlayersArray = Object.values(confirmedPlayersData);
-        const numConfirmedGoalkeepers = confirmedPlayersArray.filter(p => p.isGoalkeeper).length;
-        const numConfirmedFieldPlayers = confirmedPlayersArray.filter(p => !p.isGoalkeeper).length;
+        let numConfirmedGoalkeepers = Object.values(confirmedPlayersData).filter(p => p.isGoalkeeper).length;
+        let numConfirmedFieldPlayers = Object.values(confirmedPlayersData).filter(p => !p.isGoalkeeper).length;
         const waitingSnapshot = await waitingListRef.orderByChild('timestamp').once('value');
         const waitingPlayersData = waitingSnapshot.val();
         if (!waitingPlayersData) return;
+
+        const allLoginsSnapshot = await allUsersLoginsRef.once('value');
+        const allLogins = allLoginsSnapshot.val() || {};
+
         const waitingPlayersArray = Object.entries(waitingPlayersData)
             .map(([id, data]) => ({ id, ...data }))
             .sort((a, b) => a.timestamp - b.timestamp);
         for (const playerToPromote of waitingPlayersArray) {
-            let promoted = false;
+            if (playerToPromote.isGuest) continue;
             if (playerToPromote.isGoalkeeper) {
                 if (numConfirmedGoalkeepers < MAX_GOALKEEPERS) {
                     await confirmedPlayersRef.child(playerToPromote.id).set(playerToPromote);
                     await waitingListRef.child(playerToPromote.id).remove();
-                    promoted = true;
+                    console.log(`Goleiro ${playerToPromote.name} promovido da espera.`);
+                    numConfirmedGoalkeepers++;
                 }
             } else {
+                const saldo = allLogins[playerToPromote.id]?.saldo ?? 0;
+                if (saldo < VALOR_JOGO && !isCurrentUserAdmin) {
+                    console.log(`${playerToPromote.name} na espera tem saldo insuficiente (${saldo}) e não foi promovido.`);
+                    continue;
+                }
                 if (numConfirmedFieldPlayers < MAX_FIELD_PLAYERS) {
                     await confirmedPlayersRef.child(playerToPromote.id).set(playerToPromote);
                     await waitingListRef.child(playerToPromote.id).remove();
-                    promoted = true;
+                    await saveDiscountPlayerFinance(playerToPromote.id);
+                    console.log(`Jogador de linha ${playerToPromote.name} promovido da espera. Saldo debitado.`);
+                    numConfirmedFieldPlayers++;
                 }
             }
-            if (promoted) break;
         }
     } catch (error) {
         console.error("Erro ao promover jogador:", error);
@@ -1198,9 +1253,9 @@ function toggleEditModeFinancialRow(uid, isEditing) {
     const starsCell = row.querySelector('.col-stars');
     const actionsCell = row.querySelector('.col-actions');
     if (isEditing) {
-        const currentBalance = parseFloat(balanceCell.textContent.replace('R$', '').replace(/\./g, '').replace(',', '.')) || 0;
+        const currentBalance = parseFloat(balanceCell.textContent.replace('R$', '').replace(/\./g, '').replace(/\s+/g, '').replace(',', '.')) || 0;
         const currentStars = parseFloat(starsCell.textContent) || 5;
-        balanceCell.innerHTML = `<input type="number" step="0.01" value="${currentBalance.toFixed(2)}">`;
+        balanceCell.innerHTML = `<input type="number" step="0.50" value="${currentBalance.toFixed(2)}">`;
         starsCell.innerHTML = `<input type="number" min="5" max="10" step="0.5" value="${currentStars}">`;
         actionsCell.innerHTML = `
             <button class="action-button-small save-btn" onclick="saveFinancialData('${uid}')"><i class="fas fa-check"></i></button>
@@ -1238,6 +1293,70 @@ async function saveFinancialData(uid) {
         displayErrorMessageFinancial("Falha ao salvar. Verifique as permissões.", true);
     }
 }
+
+async function saveDiscountPlayerFinance(uid) {
+    if (!uid) return;
+
+    const userFinancialsRef = allUsersLoginsRef.child(uid);
+    try {
+        await userFinancialsRef.transaction((currentData) => {
+            if (currentData) {
+                // Deduz o valor do jogo do saldo atual
+                currentData.saldo = (currentData.saldo || 0) - VALOR_JOGO;
+                return currentData;
+            }
+            return currentData; // Retorna os dados originais se o usuário não for encontrado (não deveria acontecer)
+        });
+        console.log(`Debitado R$${VALOR_JOGO} do saldo de ${uid}.`);
+    } catch (error) {
+        console.error("Erro ao debitar valor do jogo:", error);
+        displayErrorMessage("Erro ao atualizar seu saldo financeiro.", true);
+    }
+}
+
+// NOVA FUNÇÃO para estornar o valor
+async function refundPlayerBalance(uid) {
+    if (!uid) return;
+    const userFinancialsRef = allUsersLoginsRef.child(uid);
+    try {
+        await userFinancialsRef.transaction((currentData) => {
+            if (currentData) {
+                currentData.saldo = (currentData.saldo || 0) + VALOR_JOGO;
+                return currentData;
+            }
+            return currentData;
+        });
+        console.log(`Estornado R$${VALOR_JOGO} para o saldo de ${uid}.`);
+        displayErrorMessage("Valor do jogo estornado ao seu saldo.", false);
+    } catch (error) {
+        console.error("Erro ao estornar valor do jogo:", error);
+        displayErrorMessage("Erro ao estornar valor do seu saldo.", true);
+    }
+}
+
+// NOVA FUNÇÃO para aplicar multa
+async function applyLateRemovalPenalty(uid) {
+    if (!uid) return;
+    const userFinancialsRef = allUsersLoginsRef.child(uid);
+    try {
+        await userFinancialsRef.transaction((currentData) => {
+            if (currentData) {
+                // A regra é que o jogador já perdeu os 3 reais do jogo (não há estorno),
+                // e aqui aplicamos a multa adicional.
+                currentData.saldo = (currentData.saldo || 0) - VALOR_MULTA_SAIDA_TARDIA;
+                return currentData;
+            }
+            return currentData;
+        });
+        const penaltyValueStr = VALOR_MULTA_SAIDA_TARDIA.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+        console.log(`Aplicada multa de ${penaltyValueStr} ao saldo de ${uid}.`);
+        displayErrorMessage(`Multa de ${penaltyValueStr} aplicada por saída tardia.`, true, 7000);
+    } catch (error) {
+        console.error("Erro ao aplicar multa:", error);
+        displayErrorMessage("Erro ao aplicar multa ao seu saldo.", true);
+    }
+}
+
 
 function loadLists() {
     if (scheduleConfigLoaded) updateListAvailabilityUI();
