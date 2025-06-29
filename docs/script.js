@@ -35,6 +35,7 @@ const userInfo = document.getElementById('user-info');
 const listStatusMessageElement = document.getElementById('list-status-message');
 const errorMessageElementGameLists = document.getElementById('error-message-game-lists');
 const errorMessageElementFinancial = document.getElementById('error-message-financial');
+const errorMessageElementPainelAdmin = document.getElementById('error-message-painel-admin');
 
 // Abas
 const tabsContainer = document.querySelector('.tabs-container');
@@ -507,6 +508,21 @@ function displayErrorMessage(message, isError = true, duration = 5000) {
                 errorMessageElementGameLists.textContent = '';
                 errorMessageElementGameLists.style.display = 'none';
                 errorMessageElementGameLists.className = 'error-message';
+            }
+        }, duration);
+    }
+}
+
+function displayErrorMessagePainelAdmin(message, isError = true, duration = 5000) {
+    if (errorMessageElementPainelAdmin) {
+        errorMessageElementPainelAdmin.textContent = message;
+        errorMessageElementPainelAdmin.style.display = 'block';
+        errorMessageElementPainelAdmin.className = `error-message ${isError ? 'error-active' : 'success-active'}`;
+        setTimeout(() => {
+            if (errorMessageElementPainelAdmin) {
+                errorMessageElementPainelAdmin.textContent = '';
+                errorMessageElementPainelAdmin.style.display = 'none';
+                errorMessageElementPainelAdmin.className = 'error-message';
             }
         }, duration);
     }
@@ -1087,7 +1103,7 @@ function renderAdminUserListItemForPanel(user, isConfirmed, isInWaitingList) {
 
 async function adminAddPlayerToGame(playerId, playerName, isPlayerGoalkeeper, isPlayerNeedsTolerance) {
     if (!isCurrentUserAdmin) {
-        displayErrorMessage("Ação restrita a administradores.", true);
+        displayErrorMessagePainelAdmin("Ação restrita a administradores.", true);
         return;
     }
 
@@ -1098,24 +1114,24 @@ async function adminAddPlayerToGame(playerId, playerName, isPlayerGoalkeeper, is
             const saldo = userData?.saldo ?? 0;
             if (saldo < VALOR_JOGO) {
                 const saldoStr = saldo.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-                displayErrorMessage(`Não foi possível adicionar ${playerName}. Saldo de ${saldoStr} é insuficiente.`, true, 7000);
+                displayErrorMessagePainelAdmin(`Não foi possível adicionar ${playerName}. Saldo de ${saldoStr} é insuficiente.`, true, 7000);
                 return;
             }
         } catch (e) {
             console.error("Erro ao verificar saldo para admin-add:", e);
-            displayErrorMessage("Não foi possível verificar saldo do jogador.", true);
+            displayErrorMessagePainelAdmin("Não foi possível verificar saldo do jogador.", true);
             return;
         }
     }
 
-    displayErrorMessage(`Adicionando ${playerName}...`, false, 2000);
+    displayErrorMessagePainelAdmin(`Adicionando ${playerName}...`, false, 2000);
     try {
         const confirmedSnapshot = await confirmedPlayersRef.once('value');
         const confirmedData = confirmedSnapshot.val() || {};
         const waitingSnapshot = await waitingListRef.once('value');
         const waitingData = waitingSnapshot.val() || {};
         if (confirmedData[playerId] || waitingData[playerId]) {
-            displayErrorMessage(`${playerName} já está em uma das listas.`, true);
+            displayErrorMessagePainelAdmin(`${playerName} já está em uma das listas.`, true);
             return;
         }
         const userLoginDataSnapshot = await allUsersLoginsRef.child(playerId).once('value');
@@ -1142,7 +1158,7 @@ async function adminAddPlayerToGame(playerId, playerName, isPlayerGoalkeeper, is
         }
     } catch (error) {
         console.error("Erro do Admin ao adicionar jogador:", error);
-        displayErrorMessage("Falha ao adicionar jogador. Verifique o console.", true);
+        displayErrorMessagePainelAdmin("Falha ao adicionar jogador. Verifique o console.", true);
     }
 }
 
