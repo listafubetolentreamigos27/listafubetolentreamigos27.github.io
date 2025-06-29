@@ -1283,7 +1283,7 @@ function renderFinancialRow(uid, userData) {
         editButton.onclick = () => toggleEditModeFinancialRow(uid, true);
         tdActions.appendChild(editButton);
     }
-    //tr.appendChild(tdPhoto);
+    tr.appendChild(tdPhoto);
     tr.appendChild(tdName);
     tr.appendChild(tdBalance);
     tr.appendChild(tdStars);
