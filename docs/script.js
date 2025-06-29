@@ -749,29 +749,30 @@ async function removePlayer(playerId, listType) {
         if (listType === 'confirmed') {
             await confirmedPlayersRef.child(playerId).remove();
             displayErrorMessage("Jogador removido da lista principal.", false, 3000);
+
             if (playerDataForPenalty && !playerDataForPenalty.isGuest && !playerDataForPenalty.isGoalkeeper) {
                 const brasiliaTime = getCurrentBrasiliaDateTimeParts();
                 const isSaturday = brasiliaTime.dayOfWeek === 6;
                 const isAfterPenaltyTime = brasiliaTime.hour >= 13 && brasiliaTime.hour <= 16 && brasiliaTime.minute <= 30;
-                if (isSaturday && isAfterPenaltyTime) {
+                const adminSnapshot = await database.ref(`admins/${playerId}`).once('value');
+                const isPlayerAdmin = adminSnapshot.exists();
+
+                if (isSaturday && isAfterPenaltyTime && !isPlayerAdmin) {
                     const penaltyEntry = {
-                        name: playerDataForPenalty.name,
-                        photoURL: playerDataForPenalty.photoURL || null,
-                        originalConfirmationTimestamp: playerDataForPenalty.timestamp,
-                        isGoalkeeper: playerDataForPenalty.isGoalkeeper || false,
-                        needsTolerance: playerDataForPenalty.needsTolerance || false,
-                        removalTimestamp: firebase.database.ServerValue.TIMESTAMP,
-                        removedByUid: currentUser.uid,
-                        removedByName: currentUser.displayName || "Usuário Anônimo"
+                        name: playerDataForPenalty.name, photoURL: playerDataForPenalty.photoURL || null,
+                        originalConfirmationTimestamp: playerDataForPenalty.timestamp, isGoalkeeper: playerDataForPenalty.isGoalkeeper,
+                        needsTolerance: playerDataForPenalty.needsTolerance || false, removalTimestamp: firebase.database.ServerValue.TIMESTAMP,
+                        removedByUid: currentUser.uid, removedByName: currentUser.displayName || "Usuário Anônimo"
                     };
                     const penaltyEntryId = playerId + "_" + Date.now();
                     await penaltyListRef.child(penaltyEntryId).set(penaltyEntry);
                     await applyLateRemovalPenalty(playerId);
-                } else {
+                } else if (!isPlayerAdmin) {
                     await refundPlayerBalance(playerId);
                 }
             }
             await checkWaitingListAndPromote();
+
         } else if (listType === 'waiting') {
             await waitingListRef.child(playerId).remove();
             displayErrorMessage("Jogador removido da lista de espera.", false);
@@ -798,8 +799,28 @@ async function checkWaitingListAndPromote() {
         const waitingPlayersArray = Object.entries(waitingPlayersData)
             .map(([id, data]) => ({ id, ...data }))
             .sort((a, b) => a.timestamp - b.timestamp);
+
         for (const playerToPromote of waitingPlayersArray) {
             if (playerToPromote.isGuest) continue;
+
+            let canBePromoted = false;
+            let willBeCharged = !playerToPromote.isGoalkeeper;
+
+            if (willBeCharged) {
+                const saldo = allLogins[playerToPromote.id]?.saldo ?? 0;
+                if (saldo >= VALOR_JOGO) { // Não precisa checar se é admin aqui, pois a cobrança só ocorre se não for admin
+                    canBePromoted = true;
+                } else {
+                    console.log(`${playerToPromote.name} na espera tem saldo insuficiente (${saldo}) e não foi promovido.`);
+                }
+            } else {
+                canBePromoted = true;
+            }
+
+            if (!canBePromoted) {
+                continue;
+            }
+
             if (playerToPromote.isGoalkeeper) {
                 if (numConfirmedGoalkeepers < MAX_GOALKEEPERS) {
                     await confirmedPlayersRef.child(playerToPromote.id).set(playerToPromote);
@@ -808,16 +829,17 @@ async function checkWaitingListAndPromote() {
                     numConfirmedGoalkeepers++;
                 }
             } else {
-                const saldo = allLogins[playerToPromote.id]?.saldo ?? 0;
-                if (saldo < VALOR_JOGO && !isCurrentUserAdmin) {
-                    console.log(`${playerToPromote.name} na espera tem saldo insuficiente (${saldo}) e não foi promovido.`);
-                    continue;
-                }
                 if (numConfirmedFieldPlayers < MAX_FIELD_PLAYERS) {
                     await confirmedPlayersRef.child(playerToPromote.id).set(playerToPromote);
                     await waitingListRef.child(playerToPromote.id).remove();
-                    await saveDiscountPlayerFinance(playerToPromote.id);
-                    console.log(`Jogador de linha ${playerToPromote.name} promovido da espera. Saldo debitado.`);
+
+                    const adminSnapshot = await database.ref(`admins/${playerToPromote.id}`).once('value');
+                    if (!adminSnapshot.exists()) {
+                        await saveDiscountPlayerFinance(playerToPromote.id);
+                        console.log(`Jogador de linha ${playerToPromote.name} promovido da espera. Saldo debitado.`);
+                    } else {
+                        console.log(`Jogador de linha (ADMIN) ${playerToPromote.name} promovido da espera. Saldo NÃO debitado.`);
+                    }
                     numConfirmedFieldPlayers++;
                 }
             }
@@ -827,7 +849,6 @@ async function checkWaitingListAndPromote() {
         displayErrorMessage("Erro ao tentar promover jogador da espera.", true);
     }
 }
-
 function renderPlayerListItem(player, index, listTypeIdentifier) {
     const li = document.createElement('li');
     const avatarContainer = document.createElement('div');
@@ -1069,6 +1090,24 @@ async function adminAddPlayerToGame(playerId, playerName, isPlayerGoalkeeper, is
         displayErrorMessage("Ação restrita a administradores.", true);
         return;
     }
+
+    if (!isPlayerGoalkeeper) { // LÓGICA DE SALDO PARA ADMIN ADICIONANDO JOGADOR DE LINHA
+        try {
+            const userFinancialsSnapshot = await allUsersLoginsRef.child(playerId).once('value');
+            const userData = userFinancialsSnapshot.val();
+            const saldo = userData?.saldo ?? 0;
+            if (saldo < VALOR_JOGO) {
+                const saldoStr = saldo.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+                displayErrorMessage(`Não foi possível adicionar ${playerName}. Saldo de ${saldoStr} é insuficiente.`, true, 7000);
+                return;
+            }
+        } catch (e) {
+            console.error("Erro ao verificar saldo para admin-add:", e);
+            displayErrorMessage("Não foi possível verificar saldo do jogador.", true);
+            return;
+        }
+    }
+
     displayErrorMessage(`Adicionando ${playerName}...`, false, 2000);
     try {
         const confirmedSnapshot = await confirmedPlayersRef.once('value');
@@ -1077,39 +1116,28 @@ async function adminAddPlayerToGame(playerId, playerName, isPlayerGoalkeeper, is
         const waitingData = waitingSnapshot.val() || {};
         if (confirmedData[playerId] || waitingData[playerId]) {
             displayErrorMessage(`${playerName} já está em uma das listas.`, true);
-            if (isCurrentUserAdmin && document.getElementById('tab-admin-panel')?.classList.contains('active')) {
-                filterAndRenderAdminUserList(adminSearchUserInput ? adminSearchUserInput.value : "");
-            }
             return;
         }
         const userLoginDataSnapshot = await allUsersLoginsRef.child(playerId).once('value');
         const userLoginData = userLoginDataSnapshot.val();
         const photoURLForAdd = userLoginData?.photoURL || null;
-        const playerData = {
-            name: playerName,
-            isGoalkeeper: isPlayerGoalkeeper,
-            needsTolerance: isPlayerNeedsTolerance,
-            photoURL: photoURLForAdd,
-            timestamp: firebase.database.ServerValue.TIMESTAMP
-        };
+        const playerData = { name: playerName, isGoalkeeper: isPlayerGoalkeeper, needsTolerance: isPlayerNeedsTolerance, photoURL: photoURLForAdd, timestamp: firebase.database.ServerValue.TIMESTAMP };
         const confirmedArray = Object.values(confirmedData);
         const numGkConfirmed = confirmedArray.filter(p => p.isGoalkeeper).length;
         const numFpConfirmed = confirmedArray.filter(p => !p.isGoalkeeper).length;
         if (isPlayerGoalkeeper) {
             if (numGkConfirmed < MAX_GOALKEEPERS) {
                 await confirmedPlayersRef.child(playerId).set(playerData);
-                displayErrorMessage(`${playerName} (G) adicionado aos Confirmados.`, false);
+                // Não debita saldo de goleiro
             } else {
                 await waitingListRef.child(playerId).set(playerData);
-                displayErrorMessage(`Limite de Goleiros atingido. ${playerName} (G) adicionado à Espera.`, false);
             }
         } else {
             if (numFpConfirmed < MAX_FIELD_PLAYERS) {
                 await confirmedPlayersRef.child(playerId).set(playerData);
-                displayErrorMessage(`${playerName} adicionado aos Confirmados.`, false);
+                await saveDiscountPlayerFinance(playerId); // Debita saldo do jogador de linha
             } else {
                 await waitingListRef.child(playerId).set(playerData);
-                displayErrorMessage(`Limite de Jogadores de Linha atingido. ${playerName} adicionado à Espera.`, false);
             }
         }
     } catch (error) {
@@ -1117,6 +1145,7 @@ async function adminAddPlayerToGame(playerId, playerName, isPlayerGoalkeeper, is
         displayErrorMessage("Falha ao adicionar jogador. Verifique o console.", true);
     }
 }
+
 
 function filterAndRenderAdminUserList(searchTerm = "") {
     if (!adminAllUsersListElement || !isCurrentUserAdmin) return;
