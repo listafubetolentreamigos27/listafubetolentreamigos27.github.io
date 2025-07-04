@@ -498,6 +498,14 @@ async function checkAndPerformAdminAutoAdd() {
     }
 }
 
+function displayGuestAddStatus(message, isError = false) {
+    if (guestAddStatusElement) {
+        guestAddStatusElement.textContent = message;
+        guestAddStatusElement.className = `status-feedback ${isError ? 'error' : 'success'} visible`;
+        setTimeout(() => { if (guestAddStatusElement) { guestAddStatusElement.textContent = ''; guestAddStatusElement.classList.remove('visible', 'error', 'success'); } }, 4000);
+    }
+}
+
 function displayErrorMessage(message, isError = true, duration = 5000) {
     if (errorMessageElementGameLists) {
         errorMessageElementGameLists.textContent = message;
