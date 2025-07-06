@@ -222,16 +222,7 @@ function updateGuestAdditionAvailabilityUI() {
     }
     const canAddGuestsToday = isItFridayOrSaturdayInBrasilia();
 
-    if (isCurrentUserAdmin) {
-        guestNameInputElem.disabled = false;
-        guestIsGoalkeeperCheckboxElem.disabled = false;
-        addGuestButtonElem.disabled = false;
-        guestDayMessageElem.style.display = 'none';
-        guestNameLabel.style.display = 'block';
-        guestIsGkGroup.style.display = 'flex';
-        guestNameInputElem.style.display = 'block';
-        addGuestButtonElem.style.display = 'inline-flex';
-    } else if (canAddGuestsToday) {
+    if (isCurrentUserAdmin || canAddGuestsToday) {
         guestNameInputElem.disabled = false;
         guestIsGoalkeeperCheckboxElem.disabled = false;
         addGuestButtonElem.disabled = false;
@@ -551,7 +542,6 @@ function displayErrorMessageFinancial(message, isError = true, duration = 5000) 
     }
 }
 
-
 async function saveDiscountPlayerFinance(uid) {
     if (!uid) return;
     const userFinancialsRef = allUsersLoginsRef.child(uid);
@@ -594,12 +584,15 @@ async function applyLateRemovalPenalty(uid) {
     try {
         await userFinancialsRef.transaction((currentData) => {
             if (currentData) {
+                // A regra é que o jogador já perdeu os 3 reais do jogo (não há estorno),
+                // e aqui aplicamos a multa adicional.
                 currentData.saldo = (currentData.saldo || 0) - VALOR_MULTA_SAIDA_TARDIA;
                 return currentData;
             }
             return currentData;
         });
         const penaltyValueStr = VALOR_MULTA_SAIDA_TARDIA.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+        console.log(`Aplicada multa de ${penaltyValueStr} ao saldo de ${uid}.`);
         displayErrorMessage(`Multa de ${penaltyValueStr} aplicada por saída tardia.`, true, 7000);
     } catch (error) {
         console.error("Erro ao aplicar multa:", error);
@@ -780,6 +773,7 @@ async function removePlayer(playerId, listType) {
                 const isAfterPenaltyTime = brasiliaTime.hour >= 13 && brasiliaTime.hour <= 16 && brasiliaTime.minute <= 30;
                 const adminSnapshot = await database.ref(`admins/${playerId}`).once('value');
                 const isPlayerAdmin = adminSnapshot.exists();
+                const canRefund = !isPlayerAdmin && isSaturday && brasiliaTime.hour < 13;
 
                 if (isSaturday && isAfterPenaltyTime && !isPlayerAdmin) {
                     const penaltyEntry = {
@@ -791,7 +785,7 @@ async function removePlayer(playerId, listType) {
                     const penaltyEntryId = playerId + "_" + Date.now();
                     await penaltyListRef.child(penaltyEntryId).set(penaltyEntry);
                     await applyLateRemovalPenalty(playerId);
-                } else if (!isPlayerAdmin) {
+                } else if (canRefund) {
                     await refundPlayerBalance(playerId);
                 }
             }
@@ -1346,71 +1340,6 @@ async function saveFinancialData(uid) {
         displayErrorMessageFinancial("Falha ao salvar. Verifique as permissões.", true);
     }
 }
-
-async function saveDiscountPlayerFinance(uid) {
-    if (!uid) return;
-
-    const userFinancialsRef = allUsersLoginsRef.child(uid);
-    try {
-        await userFinancialsRef.transaction((currentData) => {
-            if (currentData) {
-                // Deduz o valor do jogo do saldo atual
-                currentData.saldo = (currentData.saldo || 0) - VALOR_JOGO;
-                return currentData;
-            }
-            return currentData; // Retorna os dados originais se o usuário não for encontrado (não deveria acontecer)
-        });
-        console.log(`Debitado R$${VALOR_JOGO} do saldo de ${uid}.`);
-    } catch (error) {
-        console.error("Erro ao debitar valor do jogo:", error);
-        displayErrorMessage("Erro ao atualizar seu saldo financeiro.", true);
-    }
-}
-
-// NOVA FUNÇÃO para estornar o valor
-async function refundPlayerBalance(uid) {
-    if (!uid) return;
-    const userFinancialsRef = allUsersLoginsRef.child(uid);
-    try {
-        await userFinancialsRef.transaction((currentData) => {
-            if (currentData) {
-                currentData.saldo = (currentData.saldo || 0) + VALOR_JOGO;
-                return currentData;
-            }
-            return currentData;
-        });
-        console.log(`Estornado R$${VALOR_JOGO} para o saldo de ${uid}.`);
-        displayErrorMessage("Valor do jogo estornado ao seu saldo.", false);
-    } catch (error) {
-        console.error("Erro ao estornar valor do jogo:", error);
-        displayErrorMessage("Erro ao estornar valor do seu saldo.", true);
-    }
-}
-
-// NOVA FUNÇÃO para aplicar multa
-async function applyLateRemovalPenalty(uid) {
-    if (!uid) return;
-    const userFinancialsRef = allUsersLoginsRef.child(uid);
-    try {
-        await userFinancialsRef.transaction((currentData) => {
-            if (currentData) {
-                // A regra é que o jogador já perdeu os 3 reais do jogo (não há estorno),
-                // e aqui aplicamos a multa adicional.
-                currentData.saldo = (currentData.saldo || 0) - VALOR_MULTA_SAIDA_TARDIA;
-                return currentData;
-            }
-            return currentData;
-        });
-        const penaltyValueStr = VALOR_MULTA_SAIDA_TARDIA.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-        console.log(`Aplicada multa de ${penaltyValueStr} ao saldo de ${uid}.`);
-        displayErrorMessage(`Multa de ${penaltyValueStr} aplicada por saída tardia.`, true, 7000);
-    } catch (error) {
-        console.error("Erro ao aplicar multa:", error);
-        displayErrorMessage("Erro ao aplicar multa ao seu saldo.", true);
-    }
-}
-
-
 function loadLists() {
     if (scheduleConfigLoaded) updateListAvailabilityUI();
     if (confirmedPlayersRef) {
