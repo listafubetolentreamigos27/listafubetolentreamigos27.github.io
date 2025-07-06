@@ -1112,9 +1112,11 @@ async function adminAddPlayerToGame(playerId, playerName, isPlayerGoalkeeper, is
     if (!isPlayerGoalkeeper) { // LÓGICA DE SALDO PARA ADMIN ADICIONANDO JOGADOR DE LINHA
         try {
             const userFinancialsSnapshot = await allUsersLoginsRef.child(playerId).once('value');
+            const adminSnapshot = await database.ref(`admins/${playerId}`).once('value');
+            const isPlayerAdmin = adminSnapshot.exists();
             const userData = userFinancialsSnapshot.val();
             const saldo = userData?.saldo ?? 0;
-            if (saldo < VALOR_JOGO) {
+            if (!isPlayerAdmin && saldo < VALOR_JOGO) {
                 const saldoStr = saldo.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
                 displayErrorMessagePainelAdmin(`Não foi possível adicionar ${playerName}. Saldo de ${saldoStr} é insuficiente.`, true, 7000);
                 return;
