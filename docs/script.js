@@ -822,7 +822,9 @@ async function checkWaitingListAndPromote() {
             if (playerToPromote.isGuest) continue;
 
             let canBePromoted = false;
-            let willBeCharged = !playerToPromote.isGoalkeeper;
+            const adminSnapshot = await database.ref(`admins/${playerToPromote.id}`).once('value');
+            const isPlayerAdmin = adminSnapshot.exists();
+            let willBeCharged = !playerToPromote.isGoalkeeper && !isPlayerAdmin;
 
             if (willBeCharged) {
                 const saldo = allLogins[playerToPromote.id]?.saldo ?? 0;
